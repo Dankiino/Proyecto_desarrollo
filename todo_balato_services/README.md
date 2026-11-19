@@ -1,19 +1,22 @@
 # Servicios Django de Todo Balato
 
-Este repositorio contiene dos servicios Django independientes:
+Este repositorio contiene tres servicios Django independientes:
 
 | Servicio | Carpeta | Responsabilidad | Base de datos |
 |---|---|---|---|
 | Gestión | [`gestion-service/`](./gestion-service/) | Registro, autenticación, usuarios y roles | PostgreSQL (`gestion_db`) |
 | Comercio | [`comercio-service/`](./comercio-service/) | Cálculo de carrito y checkout | PostgreSQL (`comercio_db`) |
+| Catálogo | [`catalogo-service/`](./catalogo-service/) | Productos e inventario | MongoDB Atlas (`catalogo_db`) |
 
 Comercio también consulta el catálogo almacenado en MongoDB Atlas (`catalogo_db`).
-El servicio Django independiente de Catálogo aún está pendiente de crearse.
+El servicio Django independiente de Catálogo (estructura base) está en `catalogo-service/`.
+
 
 ## Documentación por servicio
 
 - [Gestión](./gestion-service/README.md): instalación, configuración y endpoints.
 - [Comercio](./comercio-service/README.md): instalación, configuración y endpoints.
+- [Catálogo](./catalogo-service/README.md): instalación, configuración y ruta de estado (puerto 8002).
 
 ## Requisitos
 
