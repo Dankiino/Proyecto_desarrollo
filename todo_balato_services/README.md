@@ -11,6 +11,7 @@ Este repositorio contiene tres servicios Django independientes:
 Comercio también consulta el catálogo almacenado en MongoDB Atlas (`catalogo_db`).
 El servicio Django independiente de Catálogo (estructura base) está en `catalogo-service/`.
 
+
 ## Documentación por servicio
 
 - [Gestión](./gestion-service/README.md): instalación, configuración y endpoints.
