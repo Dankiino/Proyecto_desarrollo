@@ -32,13 +32,14 @@ def formatear_producto(producto, detalle=False):
     stock_disponible = max(0, stock_fisico - stock_reservado)
 
     resultado = {
-        "id": str(producto["_id"]),
-        "nombre": producto.get("nombre", ""),
-        "precio": producto.get("precio", 0),
-        "moneda": producto.get("moneda", "CLP"),
-        "imagen_principal": imagenes[0] if imagenes else None,
-        "disponible": stock_disponible > 0,
-    }
+    "id": str(producto["_id"]),
+    "nombre": producto.get("nombre", ""),
+    "precio": producto.get("precio", 0),
+    "moneda": producto.get("moneda", "CLP"),
+    "imagen_principal": imagenes[0] if imagenes else None,
+    "disponible": stock_disponible > 0,
+    "categoria_id": producto.get("categoria_id", ""),
+}
 
     if detalle:
         resultado.update({
