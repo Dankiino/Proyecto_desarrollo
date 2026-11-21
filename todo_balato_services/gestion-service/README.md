@@ -197,9 +197,60 @@ resumida de arriba.
 - `GET /api/usuarios` con token de rol `CLIENTE` → `403 Forbidden` (confirma
   separación de roles real en backend).
 
+## Carga inicial de contenidos y temas
+
+Carga en PostgreSQL de Gestión los cuatro temas visuales y los contenidos de
+Inicio, Contacto y Quiénes somos. **No toca MongoDB**: categorías y productos
+pertenecen al servicio de Catálogo y no se crean ni modifican aquí.
+
+Con el entorno activo y las migraciones aplicadas (`python manage.py migrate`):
+
+```powershell
+python manage.py cargar_datos_iniciales
+```
+
+El comando imprime cuántos registros creó y cuántos ya existían. Los datos
+están definidos en `contenidos/datos_iniciales.py`.
+
+### Datos incluidos
+
+| Tabla | Registros |
+|---|---|
+| `contenidos_tema` | `balato-clasico` (activo por defecto), `balato-crema`, `balato-oscuro`, `balato-contraste` |
+| `contenidos_contenidopagina` | `inicio`: titulo, eslogan, titulo_categorias, titulo_destacados, banner_principal, banner_enlace |
+| | `contacto`: titulo, introduccion, correo |
+| | `quienes-somos`: titulo, texto, imagen |
+
+### Repetir el proceso
+
+Se puede ejecutar cuantas veces se quiera. Cada tema se identifica por su `id`
+y cada contenido por `(pagina, clave)`; solo se crea lo que falta. Un registro
+existente **nunca se modifica**, así que los cambios hechos por el administrador
+se conservan. Solo se marca un tema como activo si no hay ninguno activo al
+crearlo. Si se borra un registro, la siguiente ejecución lo vuelve a crear con su
+valor inicial.
+
+### Verificar los datos
+
+```powershell
+python manage.py shell -c "from contenidos.models import *; print(Tema.objects.count(), ContenidoPagina.objects.count(), list(Tema.objects.filter(activo=True).values_list('id', flat=True)))"
+```
+
+Resultado esperado tras la primera carga: `4 12 ['balato-clasico']`. También se
+pueden revisar en `http://127.0.0.1:8000/admin/` (Contenidos → Temas y
+Contenido páginas).
+
+Para comprobar que no duplica ni sobrescribe:
+
+1. Ejecuta `python manage.py cargar_datos_iniciales` dos veces: la segunda debe
+   informar `0 creados` y el comando de verificación debe seguir mostrando `4 12`.
+2. Cambia un valor desde el admin (por ejemplo `inicio.titulo`), vuelve a ejecutar
+   la carga y confirma que conserva el cambio.
+3. Prueba automática: `python manage.py test contenidos`.
+
 ## Pendiente / próximos pasos
 
-- CRUD de contenidos administrables (`Contenido`) y temas visuales (`Tema`).
+- CRUD de contenidos administrables (`ContenidoPagina`) y temas visuales (`Tema`); la carga inicial ya existe.
 - Endpoint de mensajes de contacto (`MensajeContacto`).
 - Importación masiva de usuarios vía CSV (RF12).
 - Conexión del frontend (React) a estos endpoints.
