@@ -1,7 +1,7 @@
 const gestionUrl = import.meta.env.VITE_GESTION_API_URL || "http://127.0.0.1:8000/api";
 const comercioUrl = import.meta.env.VITE_COMERCIO_API_URL || "http://127.0.0.1:8001/api";
 
-async function enviar(url, datos, token, idempotencyKey) {
+async function enviar(url, datos, token, idempotencyKey, metodo = "POST") {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
@@ -9,7 +9,7 @@ async function enviar(url, datos, token, idempotencyKey) {
   let respuesta;
   try {
     respuesta = await fetch(url, {
-      method: "POST",
+      method: metodo,
       headers,
       body: JSON.stringify(datos),
     });
@@ -65,3 +65,24 @@ export const crearOrden = (items, total, token, idempotencyKey) => enviar(
   token,
   idempotencyKey,
 );
+
+export const combinarCarrito = (items, token) => enviar(
+  `${comercioUrl}/carrito/combinar`,
+  { items },
+  token,
+);
+export const guardarCantidad = (id, cantidad, token) => enviar(
+  `${comercioUrl}/carrito/items/${encodeURIComponent(id)}`,
+  { cantidad },
+  token,
+  undefined,
+  "PUT",
+);
+export const quitarDelCarrito = (id, token) => enviar(
+  `${comercioUrl}/carrito/items/${encodeURIComponent(id)}`,
+  undefined,
+  token,
+  undefined,
+  "DELETE",
+);
+
