@@ -437,3 +437,541 @@ button { font-family: inherit; cursor: pointer; }
     font-size: 12px;
   }
 }
+
+
+
+
+/* =====================================
+   FORMULARIO ADMINISTRATIVO COMPACTO
+===================================== */
+
+/* Centrar el formulario */
+.admin-panel .admin-form {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto 40px;
+    padding: 26px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
+    align-items: start;
+}
+
+/* Campos principales */
+.admin-panel .admin-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.admin-panel .admin-form input,
+.admin-panel .admin-form select {
+    height: 40px;
+    min-height: 40px;
+    padding: 8px 11px;
+    font-size: 13px;
+    border-radius: 7px;
+}
+
+/* Descripción más pequeña */
+.admin-panel .admin-form textarea {
+    min-height: 40px;
+    height: 40px;
+    resize: vertical;
+    font-size: 13px;
+}
+
+/* Sección de imágenes */
+.admin-panel .admin-form h3,
+.admin-panel .admin-form > p {
+    grid-column: 1 / -1;
+    margin: 8px 0 0;
+}
+
+.admin-panel .admin-form > p {
+    color: #777;
+    font-size: 13px;
+}
+
+.admin-panel .admin-imagen-campo {
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 13px;
+    background: #faf8f3;
+    border: 1px solid #e9dfcd;
+    border-radius: 9px;
+}
+
+.admin-panel .admin-imagen-campo label {
+    font-size: 12px;
+}
+
+.admin-panel .admin-imagen-campo input {
+    height: 36px;
+    min-height: 36px;
+}
+
+/* Botones */
+.admin-panel .admin-form > button {
+    grid-column: 1 / -1;
+    min-height: 42px;
+    margin-top: 3px;
+}
+
+/* Centrar títulos */
+.admin-panel > h2 {
+    max-width: 820px;
+    margin: 28px auto 18px;
+}
+
+/* Adaptación móvil */
+@media (max-width: 650px) {
+    .admin-panel .admin-form {
+        grid-template-columns: 1fr;
+        padding: 17px;
+    }
+
+    .admin-panel .admin-form label,
+    .admin-panel .admin-form h3,
+    .admin-panel .admin-form > p,
+    .admin-panel .admin-imagen-campo,
+    .admin-panel .admin-form > button {
+        grid-column: 1;
+    }
+}
+
+
+/* =====================================================
+   PANEL ADMINISTRATIVO - ESTILO GENERAL
+   ===================================================== */
+
+.admin-panel {
+  width: min(100% - 40px, 1250px);
+  margin: 35px auto;
+  padding: 30px;
+  background: #fffdf8;
+  border: 1px solid #eadfcf;
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(40, 25, 10, 0.07);
+  text-align: left;
+}
+
+.admin-panel h1,
+.admin-panel h2,
+.admin-panel h3 {
+  color: #242424;
+}
+
+.admin-panel h1 {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 32px);
+}
+
+.admin-panel h2 {
+  font-size: 22px;
+}
+
+.admin-panel .admin-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 2px solid #be1a19;
+}
+
+.admin-panel .admin-encabezado p {
+  margin: 8px 0 0;
+  color: #666;
+}
+
+.admin-panel .admin-pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.admin-panel button {
+  border: 0;
+  border-radius: 7px;
+  padding: 10px 15px;
+  background: #be1a19;
+  color: #fff;
+  font-weight: 600;
+  transition: background .18s ease, transform .18s ease;
+}
+
+.admin-panel button:hover:not(:disabled) {
+  background: #941414;
+  transform: translateY(-1px);
+}
+
+.admin-panel button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.admin-panel .admin-exito,
+.admin-panel .admin-error {
+  padding: 12px 15px;
+  margin: 16px 0;
+  border-radius: 8px;
+}
+
+.admin-panel .admin-exito {
+  color: #17643a;
+  background: #e4f5e9;
+}
+
+.admin-panel .admin-error {
+  color: #8b1717;
+  background: #fce9e7;
+}
+
+/* =====================================================
+   FORMULARIOS ADMINISTRATIVOS COMPACTOS Y CENTRADOS
+   ===================================================== */
+
+.admin-panel .admin-form {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 38px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  align-items: start;
+  background: #fff;
+  border: 1px solid #eadfcf;
+  border-radius: 13px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .035);
+}
+
+.admin-panel .admin-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #292929;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-panel .admin-form input,
+.admin-panel .admin-form select,
+.admin-panel .admin-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 11px;
+  color: #222;
+  background: #fff;
+  border: 1px solid #d8d8d8;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.admin-panel .admin-form textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.admin-panel .admin-form input:focus,
+.admin-panel .admin-form select:focus,
+.admin-panel .admin-form textarea:focus {
+  outline: 2px solid #f1c7a9;
+  border-color: #be1a19;
+}
+
+.admin-panel .admin-form h3,
+.admin-panel .admin-form > p {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+}
+
+.admin-panel .admin-form > p {
+  color: #777;
+  font-size: 13px;
+}
+
+.admin-panel .admin-imagen-campo {
+  min-width: 0;
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  background: #faf8f3;
+  border: 1px solid #e9dfcd;
+  border-radius: 9px;
+}
+
+.admin-panel .admin-imagen-campo label {
+  font-size: 12px;
+}
+
+.admin-panel .admin-imagen-campo input {
+  min-height: 36px;
+}
+
+.admin-panel .admin-form > button {
+  grid-column: 1 / -1;
+  min-height: 42px;
+}
+
+/* =====================================================
+   INVENTARIO - ENCABEZADO Y CONTADORES
+   Requiere las clases admin-seccion-titulo y admin-resumen
+   en AdminPage.jsx.
+   ===================================================== */
+
+.admin-panel .admin-seccion-titulo {
+  width: 100%;
+  max-width: 1150px;
+  margin: 34px auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-panel .admin-seccion-titulo h2 {
+  margin: 0 0 7px;
+  font-size: 23px;
+}
+
+.admin-panel .admin-seccion-titulo p {
+  margin: 0;
+  color: #777;
+  font-size: 14px;
+}
+
+.admin-panel .admin-contador {
+  padding: 9px 15px;
+  color: #8b1717;
+  background: #f8edcf;
+  border: 1px solid #ead9ac;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-panel .admin-resumen {
+  width: 100%;
+  max-width: 1150px;
+  margin: 0 auto 28px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-panel .admin-resumen article {
+  min-width: 0;
+  min-height: 112px;
+  padding: 19px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #eadfcf;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .04);
+}
+
+.admin-panel .admin-resumen article span {
+  color: #777;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-panel .admin-resumen article strong {
+  color: #a71919;
+  font-size: 29px;
+  line-height: 1;
+}
+
+/* =====================================================
+   LISTADO DE PRODUCTOS Y CATEGORÍAS
+   ===================================================== */
+
+.admin-panel .admin-listado {
+  width: 100%;
+  max-width: 1150px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.admin-panel .admin-registro {
+  min-width: 0;
+  padding: 17px 20px;
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) minmax(90px, .7fr) minmax(100px, .8fr) auto;
+  align-items: center;
+  gap: 17px;
+  background: #fff;
+  border: 1px solid #e8dfd1;
+  border-radius: 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .035);
+}
+
+.admin-panel .admin-registro > strong {
+  color: #252525;
+  font-size: 15px;
+}
+
+.admin-panel .admin-registro > span {
+  color: #555;
+  font-size: 14px;
+}
+
+.admin-panel .admin-producto-datos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-panel .admin-producto-datos strong {
+  color: #252525;
+  font-size: 15px;
+}
+
+.admin-panel .admin-producto-datos small {
+  color: #888;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.admin-panel .admin-producto-stock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.admin-panel .admin-producto-stock span {
+  color: #888;
+  font-size: 12px;
+}
+
+.admin-panel .admin-producto-stock strong {
+  color: #292929;
+  font-size: 14px;
+}
+
+.admin-panel .admin-producto-estado {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-panel .admin-producto-estado.activo {
+  color: #17643a;
+  background: #e4f5e9;
+}
+
+.admin-panel .admin-producto-estado.inactivo {
+  color: #8b1717;
+  background: #fce9e7;
+}
+
+.admin-panel .admin-producto-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-panel .admin-producto-acciones button {
+  padding: 9px 13px;
+  font-size: 12px;
+}
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+
+@media (max-width: 950px) {
+  .admin-panel .admin-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-panel .admin-registro {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-panel .admin-producto-acciones {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .admin-panel {
+    width: min(100% - 20px, 1250px);
+    margin: 15px auto;
+    padding: 17px;
+    border-radius: 11px;
+  }
+
+  .admin-panel .admin-encabezado {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-panel .admin-form {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .admin-panel .admin-form label,
+  .admin-panel .admin-form h3,
+  .admin-panel .admin-form > p,
+  .admin-panel .admin-imagen-campo,
+  .admin-panel .admin-form > button {
+    grid-column: 1;
+  }
+
+  .admin-panel .admin-seccion-titulo {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-panel .admin-resumen {
+    gap: 9px;
+  }
+
+  .admin-panel .admin-resumen article {
+    min-height: 92px;
+    padding: 13px;
+  }
+
+  .admin-panel .admin-resumen article strong {
+    font-size: 25px;
+  }
+
+  .admin-panel .admin-registro {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .admin-panel .admin-producto-acciones {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+}

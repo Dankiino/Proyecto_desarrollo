@@ -6,7 +6,7 @@ import Catalog from "./pages/Catalog";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import AuthPage from "./pages/AuthPage";
-import { productos } from "./data/productos";
+import { obtenerProductos } from "./services/catalogoApi";
 import {
   calcularCarrito,
   crearOrden,
@@ -18,6 +18,9 @@ import {
 
 export default function App() {
   const [pagina, setPagina] = useState("inicio");
+  const [productos, setProductos] = useState([]);
+  const [cargandoProductos, setCargandoProductos] = useState(true);
+  const [errorProductos, setErrorProductos] = useState("");
   const [categoria, setCategoria] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [carrito, setCarrito] = useState([]); // [{ id, cantidad }]
@@ -26,6 +29,55 @@ export default function App() {
   const [errorCarrito, setErrorCarrito] = useState("");
   const [orden, setOrden] = useState(null);
   const llaveOrden = useRef(null);
+
+useEffect(() => {
+  let vigente = true;
+
+  async function cargarProductos() {
+    try {
+      setCargandoProductos(true);
+      setErrorProductos("");
+
+      const respuesta = await obtenerProductos();
+
+      const productosAdaptados = respuesta.productos.map((producto) => ({
+        id: producto._id,
+        nombre: producto.nombre,
+        precio: producto.precio,
+        moneda: producto.moneda,
+        categoria_id: producto.categoria_id,
+        disponible:
+          producto.activo &&
+          producto.stock_fisico > producto.stock_reservado,
+        imagen_principal: producto.imagenes?.[0]
+          ? {
+              url: producto.imagenes[0].url,
+              texto_alternativo: producto.imagenes[0].alt,
+            }
+          : null,
+      }));
+
+          if (vigente) {
+            setProductos(productosAdaptados);
+          }
+        } catch (error) {
+          if (vigente) {
+            setErrorProductos(error.message);
+          }
+        } finally {
+          if (vigente) {
+            setCargandoProductos(false);
+          }
+        }
+      }
+
+      cargarProductos();
+
+      return () => {
+        vigente = false;
+      };
+    }, []);
+
 
   useEffect(() => {
     if (carrito.length === 0) {
@@ -137,10 +189,28 @@ export default function App() {
       />
 
       <main className="contenido">
-        {pagina === "inicio" && <Home onNavegar={navegar} onAgregar={agregar} />}
-        {pagina === "catalogo" && (
-          <Catalog key={categoria} categoriaInicial={categoria} busqueda={busqueda} onAgregar={agregar} />
+                {pagina === "inicio" && (
+          <Home
+            onNavegar={navegar}
+            onAgregar={agregar}
+            productos={productos}
+            cargando={cargandoProductos}
+            error={errorProductos}
+          />
         )}
+
+          {pagina === "catalogo" && (
+            <Catalog
+              key={categoria}
+              categoriaInicial={categoria}
+              busqueda={busqueda}
+              onAgregar={agregar}
+              productos={productos}
+              cargando={cargandoProductos}
+              error={errorProductos}
+            />
+          )}
+
         {pagina === "carrito" && (
           <CartPage
             lineas={lineas}
