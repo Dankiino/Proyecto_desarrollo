@@ -151,3 +151,9 @@ CORS_ALLOWED_ORIGINS = [
 from corsheaders.defaults import default_headers
 
 CORS_ALLOW_HEADERS = (*default_headers, "idempotency-key")
+
+# Webpay Plus (ambiente de prueba). Valores solo por variables de entorno.
+WEBPAY_COMMERCE_CODE = os.getenv("WEBPAY_COMMERCE_CODE")
+WEBPAY_API_KEY = os.getenv("WEBPAY_API_KEY")
+WEBPAY_RETURN_URL = os.getenv("WEBPAY_RETURN_URL")  # URL de este servicio a la que Webpay devuelve al cliente
+FRONTEND_RESULT_URL = os.getenv("FRONTEND_RESULT_URL", "http://localhost:5173/pago/resultado")

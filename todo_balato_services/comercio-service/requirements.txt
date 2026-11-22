@@ -7,3 +7,4 @@ psycopg2-binary==2.9.13
 python-dotenv==1.2.4
 pymongo==4.19.0
 requests==2.34.2
+transbank-sdk==6.1.0

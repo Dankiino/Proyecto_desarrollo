@@ -60,6 +60,9 @@ class Pago(models.Model):
         ("PENDIENTE", "PENDIENTE"),
         ("APROBADO", "APROBADO"),
         ("RECHAZADO", "RECHAZADO"),
+        ("CANCELADO", "CANCELADO"),
+        ("POR_VERIFICAR", "POR_VERIFICAR"),  # Webpay no respondió: se vuelve a consultar
+        ("INCONSISTENTE", "INCONSISTENTE"),  # Webpay autorizó pero monto u orden no coinciden
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -67,6 +70,8 @@ class Pago(models.Model):
     proveedor = models.CharField(max_length=50, default="webpay_plus")
     token_ws = models.CharField(max_length=255, null=True, blank=True)
     id_externo = models.CharField(max_length=255, null=True, blank=True)
+    buy_order = models.CharField(max_length=26, unique=True, null=True, blank=True)  # máx. 26 caracteres en Webpay
+    url_pago = models.URLField(max_length=500, null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default="PENDIENTE")
     monto_verificado = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
     moneda_verificada = models.CharField(max_length=3, null=True, blank=True)
