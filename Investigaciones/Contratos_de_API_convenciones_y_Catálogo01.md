@@ -16,7 +16,7 @@ Este documento define cómo se comunican el frontend (React) y el servicio de Ca
 | Identificadores | Texto (string), únicos e inmutables |
 | Dinero | Entero positivo en pesos chilenos, sin decimales, junto al campo moneda. Ejemplo: precio 15990 y moneda CLP. Nunca números decimales |
 | Fechas | ISO 8601 en UTC. Ejemplo: 2026-10-17T14:30:00Z |
-| Autenticación | Cabecera Authorization: Bearer TOKEN en los endpoints protegidos. Los públicos no la requieren. El mecanismo final queda pendiente del equipo (HU-03) |
+| Autenticación | Cabecera Authorization: Bearer TOKEN en los endpoints protegidos. Los públicos no la requieren. El mecanismo es JWT emitido por Gestión (detalles en "Contrato de API: Gestión"); Comercio verifica la sesión con Gestión en cada solicitud |
 | Paginación | Parámetros page (desde 1) y page\_size (por defecto 20, máximo 50). Un valor fuera de rango responde 400 |
 
 ### Formato de listas paginadas
@@ -255,7 +255,6 @@ Esto funciona porque ambos lados siguen el mismo contrato.
 
 ## Decisiones abiertas para el equipo
 
-- Mecanismo de autenticación: JWT o sesiones.
 - URLs base de cada servicio desplegado.
 - Si un page\_size mayor a 50 se rechaza con 400 (propuesta) o se recorta a 50.
 - Si el público ve el número stock\_disponible o solo el booleano disponible.
