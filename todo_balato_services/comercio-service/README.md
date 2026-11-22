@@ -31,6 +31,7 @@ Completa `.env` con los valores privados del equipo:
 - `COMERCIO_DATABASE_URL`: conexión PostgreSQL de Comercio.
 - `CATALOGO_MONGO_URI`: conexión a MongoDB Atlas.
 - `JWT_SIGNING_KEY`: debe ser exactamente la misma clave configurada en Gestión.
+- `GESTION_URL`: URL base de Gestión (local: `http://127.0.0.1:8000`).
 
 No uses las credenciales de ejemplo como valores reales ni compartas el archivo
 `.env`.
@@ -55,5 +56,8 @@ Para desarrollo local, CORS permite los orígenes de Vite
 | POST | `/api/checkout` | Procesa la solicitud de checkout autenticada |
 
 El checkout requiere un JWT válido emitido por Gestión y la cabecera
-`Idempotency-Key`. Consulta los contratos y validaciones del código antes de
-integrar un cliente.
+`Idempotency-Key`. En cada solicitud autenticada, Comercio consulta a Gestión
+(`GET /api/usuarios/me`) el rol y el estado vigentes: una cuenta bloqueada deja
+de comprar aunque conserve un token emitido antes del bloqueo. Si Gestión no
+responde, la solicitud se rechaza con 503 (no se asume que la cuenta sigue activa).
+Consulta los contratos y validaciones del código antes de integrar un cliente.

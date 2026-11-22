@@ -48,3 +48,16 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.correo
+
+
+class TokenCuenta(models.Model):
+    """Enlace de un solo uso (activación o recuperación). Solo se guarda el hash SHA-256."""
+    PROPOSITO_CHOICES = [("ACTIVACION", "ACTIVACION"), ("RECUPERACION", "RECUPERACION")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="tokens_cuenta")
+    proposito = models.CharField(max_length=12, choices=PROPOSITO_CHOICES)
+    token_hash = models.CharField(max_length=64, unique=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    vence_en = models.DateTimeField()
+    usado_en = models.DateTimeField(null=True, blank=True)

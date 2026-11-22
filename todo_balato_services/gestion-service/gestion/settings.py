@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 import os
 import dj_database_url
+from datetime import timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -103,6 +104,7 @@ DATABASES = {
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {'user_attributes': ('nombre', 'apellido', 'correo')},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
@@ -137,17 +139,41 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
+# Correo con MAILERS (la API vigente de Django 6.1; EMAIL_BACKEND, EMAIL_HOST, etc. están
+# deprecados). Por defecto los correos se imprimen en la consola. Para envío real, define en
+# .env EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend y las variables EMAIL_*
+# (son nombres de variables de entorno propios del proyecto, no settings de Django).
+_EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+_EMAIL_OPCIONES = {}
+if _EMAIL_BACKEND.endswith("smtp.EmailBackend"):
+    _EMAIL_OPCIONES = {
+        "host": os.getenv("EMAIL_HOST", ""),
+        "port": int(os.getenv("EMAIL_PORT", "587")),
+        "username": os.getenv("EMAIL_HOST_USER", ""),
+        "password": os.getenv("EMAIL_HOST_PASSWORD", ""),
+        "use_tls": os.getenv("EMAIL_USE_TLS", "True") == "True",
+        "timeout": int(os.getenv("EMAIL_TIMEOUT", "10")),  # el envío es síncrono: no colgar la solicitud
+    }
+MAILERS = {"default": {"BACKEND": _EMAIL_BACKEND, "OPTIONS": _EMAIL_OPCIONES}}
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Todo Balato <no-reply@todobalato.local>")
+
+# Enlaces de correo (activación y recuperación)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+TOKEN_VIGENCIA = {
+    "ACTIVACION": timedelta(hours=24),
+    "RECUPERACION": timedelta(hours=1),
 }
 AUTH_USER_MODEL = "usuarios.Usuario"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "usuarios.authentication.JWTActivoAuthentication",
     ),
+    # Límite por IP en los endpoints que envían correo (evita usarlos para llenar una bandeja).
+    "DEFAULT_THROTTLE_RATES": {
+        "reenvio_activacion": "5/hour",
+        "recuperacion": "5/hour",
+    },
 }
 
 CORS_ALLOWED_ORIGINS = [
