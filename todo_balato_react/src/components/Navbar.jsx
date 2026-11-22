@@ -1,5 +1,6 @@
 const enlaces = [
   ["inicio", "Inicio"],
+  ["quienes-somos", "Quiénes somos"],
   ["catalogo", "Catálogo"],
   ["carrito", "Carrito"],
   ["cuenta", "Mi cuenta"],
