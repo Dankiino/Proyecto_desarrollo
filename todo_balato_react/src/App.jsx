@@ -6,6 +6,7 @@ import Catalog from "./pages/Catalog";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import AuthPage from "./pages/AuthPage";
+import QuienesSomos from "./pages/QuienesSomos";
 import { productos } from "./data/productos";
 import {
   calcularCarrito,
@@ -138,6 +139,7 @@ export default function App() {
 
       <main className="contenido">
         {pagina === "inicio" && <Home onNavegar={navegar} onAgregar={agregar} />}
+        {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
         {pagina === "catalogo" && (
           <Catalog key={categoria} categoriaInicial={categoria} busqueda={busqueda} onAgregar={agregar} />
         )}
