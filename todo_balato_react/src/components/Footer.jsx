@@ -25,6 +25,7 @@ export default function Footer({ onNavegar }) {
         <div className="footer-enlaces">
           <h3>Navegación</h3>
           <Enlace a="inicio" onNavegar={onNavegar}>Inicio</Enlace>
+          <Enlace a="quienes-somos" onNavegar={onNavegar}>Quiénes somos</Enlace>
           <Enlace a="catalogo" onNavegar={onNavegar}>Catálogo</Enlace>
           <Enlace a="cuenta" onNavegar={onNavegar}>Mi cuenta</Enlace>
         </div>
