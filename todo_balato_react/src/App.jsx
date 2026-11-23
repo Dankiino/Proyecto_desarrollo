@@ -15,6 +15,7 @@ import {
   miUsuario,
   registro,
 } from "./services/django";
+import Contacto from "./pages/Contacto";
 
 export default function App() {
   const [pagina, setPagina] = useState("inicio");
@@ -242,6 +243,7 @@ useEffect(() => {
             onLogout={cerrarSesion}
           />
         )}
+        {pagina === "contacto" && <Contacto />}
       </main>
 
       <Footer onNavegar={navegar} />

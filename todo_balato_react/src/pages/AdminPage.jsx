@@ -9,6 +9,8 @@ import {
     listarCategoriasAdmin,
     crearCategoriaAdmin,
     editarCategoriaAdmin,
+    listarMensajesContacto,
+    obtenerMensajeContacto,
 } from "../services/adminApi";
 
 const productoVacio = {
@@ -44,8 +46,44 @@ export default function AdminPage() {
     const [error, setError] = useState("");
     const [mensaje, setMensaje] = useState("");
     const [cargando, setCargando] = useState(false);
+    const [mensajesContacto, setMensajesContacto] = useState([]);
+    const [mensajeSeleccionado, setMensajeSeleccionado] = useState(null);
+    const [cargandoContacto, setCargandoContacto] = useState(false);
+    const [errorContacto, setErrorContacto] = useState("");
+
 
     const token = sesion?.tokens.access;
+
+    const cargarMensajesContacto = async (accessToken) => {
+        setCargandoContacto(true);
+        setErrorContacto("");
+        setMensajeSeleccionado(null);
+        setMensajesContacto([]);
+
+        try {
+            const datos = await listarMensajesContacto(accessToken);
+            setMensajesContacto(datos);
+        } catch (e) {
+            setErrorContacto(e.message);
+        } finally {
+            setCargandoContacto(false);
+        }
+    };
+
+    const verMensajeContacto = async (id) => {
+        setCargandoContacto(true);
+        setErrorContacto("");
+        setMensajeSeleccionado(null);
+
+        try {
+            const datos = await obtenerMensajeContacto(token, id);
+            setMensajeSeleccionado(datos);
+        } catch (e) {
+            setErrorContacto(e.message);
+        } finally {
+            setCargandoContacto(false);
+        }
+    };
 
     const limpiarAvisos = () => {
         setError("");
@@ -297,13 +335,19 @@ export default function AdminPage() {
         });
     };
 
+
     const cambiarSeccion = (seccion) => {
         limpiarAvisos();
         setTipo(seccion);
         setEditando(null);
         setProducto(productoVacio);
         setCategoria(categoriaVacia);
+
+        if (seccion === "contacto") {
+            cargarMensajesContacto(token);
+        }
     };
+
 
     if (!sesion) {
         return (
@@ -362,14 +406,33 @@ export default function AdminPage() {
                 </button>
             </div>
 
+
             <div className="admin-pestanas">
-                <button type="button" onClick={() => cambiarSeccion("productos")}>
+                <button
+                    type="button"
+                    onClick={() => cambiarSeccion("productos")}
+                    aria-pressed={tipo === "productos"}
+                >
                     Productos
                 </button>
-                <button type="button" onClick={() => cambiarSeccion("categorias")}>
+
+                <button
+                    type="button"
+                    onClick={() => cambiarSeccion("categorias")}
+                    aria-pressed={tipo === "categorias"}
+                >
                     Categorías
                 </button>
+
+                <button
+                    type="button"
+                    onClick={() => cambiarSeccion("contacto")}
+                    aria-pressed={tipo === "contacto"}
+                >
+                    Mensajes de contacto
+                </button>
             </div>
+
 
             {mensaje && <p role="status" className="admin-exito">{mensaje}</p>}
             {error && <p role="alert" className="admin-error">{error}</p>}
@@ -638,7 +701,7 @@ export default function AdminPage() {
                         ))}
                     </div>
                 </>
-            ) : (
+            ) : tipo === "categorias" ? (
                 <>
                     <h2>{editando ? "Editar categoría" : "Nueva categoría"}</h2>
                     <form className="admin-form" onSubmit={guardarCategoria}>
@@ -704,8 +767,102 @@ export default function AdminPage() {
                             </article>
                         ))}
                     </div>
+
                 </>
-            )}
+            ) : tipo === "contacto" ? (
+                <div className="admin-contacto">
+                    <div className="admin-contacto-encabezado">
+                        <h2>Mensajes de contacto</h2>
+
+                        <button
+                            type="button"
+                            disabled={cargandoContacto}
+                            onClick={() => cargarMensajesContacto(token)}
+                        >
+                            Actualizar mensajes
+                        </button>
+                    </div>
+
+                    {errorContacto && (
+                        <p role="alert" className="admin-error">
+                            {errorContacto}
+                        </p>
+                    )}
+
+                    {cargandoContacto && (
+                        <p role="status">Cargando mensajes...</p>
+                    )}
+
+                    {!cargandoContacto &&
+                        !errorContacto &&
+                        mensajesContacto.length === 0 && (
+                            <p>No hay mensajes recibidos.</p>
+                        )}
+
+                    {!cargandoContacto &&
+                        !errorContacto &&
+                        mensajesContacto.length > 0 && (
+                            <div className="admin-listado">
+                                {mensajesContacto.map((item) => (
+                                    <article
+                                        key={item.id}
+                                        className="admin-registro"
+                                    >
+                                        <strong>{item.nombre}</strong>
+                                        <span>{item.correo}</span>
+                                        <span>
+                                            {new Date(
+                                                item.fecha_recepcion
+                                            ).toLocaleString("es-CL")}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                verMensajeContacto(item.id)
+                                            }
+                                        >
+                                            Ver mensaje
+                                        </button>
+
+{mensajeSeleccionado?.id === item.id && (
+    <div className="admin-contacto-detalle">
+        <div className="admin-contacto-detalle-cabecera">
+            <h3>Detalle del mensaje</h3>
+            <button
+                type="button"
+                onClick={() => setMensajeSeleccionado(null)}
+            >
+                Cerrar ✕
+            </button>
+        </div>
+
+        <div className="admin-contacto-info">
+            <p><strong>Nombre:</strong> {mensajeSeleccionado.nombre}</p>
+            <p><strong>Correo:</strong> {mensajeSeleccionado.correo}</p>
+            <p>
+                <strong>Fecha:</strong>{" "}
+                {new Date(
+                    mensajeSeleccionado.fecha_recepcion
+                ).toLocaleString("es-CL")}
+            </p>
+        </div>
+
+        <div className="admin-contacto-mensaje">
+            <strong>Mensaje recibido</strong>
+            <p>{mensajeSeleccionado.mensaje}</p>
+        </div>
+    </div>
+)}
+
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+
+                    
+                </div>
+            ) : null}
         </section>
     );
 }

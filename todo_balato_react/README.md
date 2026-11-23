@@ -62,3 +62,51 @@ Abre `http://localhost:5173`. No guardes credenciales Django en el frontend.
   iniciar sesión.
 - Persistir/renovar la sesión después de recargar.
 - Integrar el pago sandbox cuando el backend esté preparado.
+
+
+## Mensajes de contacto
+
+### Formulario público
+
+La página Contacto permite enviar mensajes sin iniciar sesión.
+
+- POST `/api/contacto/` en Gestión (puerto 8000).
+- Nombre obligatorio: 2 a 100 caracteres.
+- Correo electrónico válido y obligatorio.
+- Mensaje obligatorio: 10 a 2000 caracteres.
+- React muestra los errores de validación por campo.
+- El éxito se muestra únicamente cuando Django responde HTTP 201.
+
+### Panel administrativo
+
+Acceder a `http://localhost:5173/admin` e iniciar sesión
+con una cuenta ADMIN activa.
+
+En la pestaña Mensajes de contacto se puede consultar el
+listado, actualizarlo y desplegar el detalle de cada mensaje.
+
+Endpoints de Gestión:
+
+- GET `/api/admin/contacto/`: listar mensajes.
+- GET `/api/admin/contacto/<id>/`: consultar detalle.
+
+Ambos requieren JWT de un administrador con rol ADMIN,
+estado ACTIVO e is_active=True.
+
+Los clientes, administradores bloqueados y usuarios sin
+autenticación no pueden consultar los mensajes.
+
+### Prueba manual
+
+1. Iniciar Gestión en el puerto 8000.
+2. Iniciar Catálogo en el puerto 8002.
+3. Iniciar React con `npm run dev`.
+4. Abrir `http://localhost:5173` y entrar a Contacto.
+5. Enviar un mensaje válido y comprobar la confirmación.
+6. Abrir `/admin` e iniciar sesión como ADMIN activo.
+7. Seleccionar Mensajes de contacto.
+8. Comprobar que aparece el mensaje enviado.
+9. Abrir y cerrar su detalle.
+
+Los mensajes permanecen almacenados en PostgreSQL
+después de reiniciar el servicio Gestión.

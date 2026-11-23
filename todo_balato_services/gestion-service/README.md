@@ -169,6 +169,75 @@ resumida de arriba.
 | POST | `/api/usuarios/:id/bloquear` | solo ADMIN activo | Bloquea un usuario |
 | POST | `/api/usuarios/:id/desbloquear` | solo ADMIN activo | Reactiva un usuario |
 
+
+
+## Mensajes de contacto
+
+El servicio Gestión permite recibir mensajes desde el formulario
+público de React y consultarlos desde el panel administrativo.
+
+Los mensajes se almacenan en PostgreSQL mediante el modelo
+`MensajeContacto`, que contiene:
+
+- `id`: identificador del mensaje.
+- `nombre`: nombre del remitente.
+- `correo`: correo electrónico del remitente.
+- `mensaje`: contenido del mensaje.
+- `fecha_recepcion`: fecha y hora automática de recepción.
+
+### Endpoints
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| POST | `/api/contacto/` | Público | Recibir y guardar un mensaje |
+| GET | `/api/admin/contacto/` | ADMIN activo | Listar mensajes recibidos |
+| GET | `/api/admin/contacto/<id>/` | ADMIN activo | Consultar un mensaje |
+
+### Validaciones
+
+- Nombre: entre 2 y 100 caracteres.
+- Correo: formato de correo electrónico válido.
+- Mensaje: entre 10 y 2000 caracteres.
+- Los campos son obligatorios.
+- Los datos inválidos generan HTTP 400 con errores por campo.
+- Un mensaje válido se guarda en PostgreSQL y genera HTTP 201.
+
+### Seguridad
+
+El formulario público no requiere autenticación.
+
+Para consultar mensajes se requiere un JWT válido y una cuenta
+con rol `ADMIN`, estado `ACTIVO` e `is_active=True`.
+
+Todos los administradores activos pueden consultar los mensajes.
+Los clientes, administradores bloqueados y usuarios sin sesión
+no tienen acceso.
+
+La autorización se verifica en Django mediante `EsAdminContacto`.
+
+### Pruebas realizadas
+
+- Envío de mensajes desde React: HTTP 201.
+- Validaciones de campos incorrectos: HTTP 400.
+- Listado y detalle con ADMIN activo: HTTP 200.
+- Consulta con CLIENTE activo: HTTP 403.
+- Consulta con ADMIN bloqueado: HTTP 403.
+- Consulta sin autenticación: HTTP 401.
+- Persistencia confirmada después de reiniciar Gestión.
+
+Para ejecutar las migraciones:
+
+```powershell
+python manage.py migrate
+```
+
+Para iniciar Gestión:
+
+```powershell
+python manage.py runserver 8000
+```
+
+
 ## Reglas de negocio implementadas
 
 - **RF07** — El registro público nunca crea administradores: el serializer ignora
@@ -200,7 +269,6 @@ resumida de arriba.
 ## Pendiente / próximos pasos
 
 - CRUD de contenidos administrables (`Contenido`) y temas visuales (`Tema`).
-- Endpoint de mensajes de contacto (`MensajeContacto`).
 - Importación masiva de usuarios vía CSV (RF12).
 - Conexión del frontend (React) a estos endpoints.
 - Despliegue remoto del servicio.

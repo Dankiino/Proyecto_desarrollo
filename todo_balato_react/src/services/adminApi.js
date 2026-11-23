@@ -130,3 +130,62 @@ export const editarCategoriaAdmin = (token, id, datos) =>
         token,
         datos,
     });
+
+
+
+/* =====================================
+   MENSAJES DE CONTACTO - GESTIÓN
+   ===================================== */
+
+async function solicitudContacto(ruta, token) {
+    if (!token) {
+        throw new Error("Debes iniciar sesión como administrador.");
+    }
+
+    let respuesta;
+
+    try {
+        respuesta = await fetch(`${GESTION_API}${ruta}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+    } catch {
+        throw new Error(
+            "No se pudo conectar con el servicio Gestión."
+        );
+    }
+
+    const resultado = await respuesta.json().catch(() => null);
+
+    if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+            throw new Error(
+                "Tu sesión no es válida o ha expirado."
+            );
+        }
+
+        if (respuesta.status === 403) {
+            throw new Error(
+                "Esta cuenta no está autorizada para consultar mensajes de contacto."
+            );
+        }
+
+        throw new Error(
+            resultado?.detail ||
+            "No fue posible consultar los mensajes."
+        );
+    }
+
+    return resultado;
+}
+
+export const listarMensajesContacto = (token) =>
+    solicitudContacto("/admin/contacto/", token);
+
+export const obtenerMensajeContacto = (token, id) =>
+    solicitudContacto(
+        `/admin/contacto/${encodeURIComponent(id)}/`,
+        token
+    );

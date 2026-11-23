@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "usuarios",
+    "contacto",
 
 ]
 
@@ -168,3 +169,4 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "SIGNING_KEY": os.environ["JWT_SIGNING_KEY"],
 }
+

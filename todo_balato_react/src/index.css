@@ -1129,3 +1129,243 @@ button { font-family: inherit; cursor: pointer; }
     padding: 8px 22px 30px;
   }
 }
+
+
+
+/* ==============================
+   PÁGINA DE CONTACTO
+   ============================== */
+
+.contacto-pagina {
+  display: flex;
+  justify-content: center;
+  padding: 30px 16px 60px;
+}
+
+.contacto-contenedor {
+  width: 100%;
+  max-width: 620px;
+  background: #ffffff;
+  padding: 38px;
+  border-radius: 14px;
+  border-top: 5px solid var(--color-rojo-brillante);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+
+.contacto-contenedor h1 {
+  color: var(--color-rojo-oscuro);
+  font-size: 2rem;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.contacto-contenedor > p {
+  color: #555555;
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.contacto-contenedor form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.contacto-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contacto-campo label {
+  font-weight: 700;
+  color: #292929;
+}
+
+.contacto-campo input,
+.contacto-campo textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #cccccc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #171717;
+  font: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.contacto-campo textarea {
+  resize: vertical;
+  min-height: 140px;
+}
+
+.contacto-campo input:focus,
+.contacto-campo textarea:focus {
+  outline: none;
+  border-color: var(--color-rojo-brillante);
+  box-shadow: 0 0 0 3px rgba(190, 26, 25, 0.12);
+}
+
+.contacto-campo [aria-invalid="true"] {
+  border-color: #b91c1c;
+}
+
+.contacto-campo small,
+.contacto-error {
+  color: #b91c1c;
+  font-size: 0.88rem;
+}
+
+.contacto-exito {
+  padding: 14px;
+  border-radius: 8px;
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  text-align: center;
+}
+
+.contacto-error {
+  padding: 12px;
+  background: #fef2f2;
+  border-radius: 8px;
+}
+
+.contacto-contenedor button[type="submit"] {
+  width: 100%;
+  padding: 15px;
+  background: var(--color-rojo-brillante);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+
+.contacto-contenedor button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-rojo-oscuro);
+}
+
+.contacto-contenedor button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .contacto-pagina {
+    padding: 10px 0 35px;
+  }
+
+  .contacto-contenedor {
+    padding: 25px 20px;
+  }
+
+  .contacto-contenedor h1 {
+    font-size: 1.7rem;
+  }
+}
+
+
+
+/* MENSAJES DE CONTACTO DEL ADMINISTRADOR */
+
+.admin-contacto .admin-listado {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.admin-contacto .admin-registro {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #e8ddd0;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.admin-contacto .admin-registro > strong {
+    flex: 1 1 180px;
+}
+
+.admin-contacto .admin-registro > span {
+    flex: 1 1 160px;
+    overflow-wrap: anywhere;
+}
+
+.admin-contacto-detalle {
+    flex: 0 0 100%;
+    width: 100%;
+    margin-top: 8px;
+    padding: 22px;
+    border-radius: 10px;
+    background: #fff9ed;
+    border: 1px solid #eadcc7;
+    animation: contactoAbrir 0.2s ease-out;
+}
+
+.admin-contacto-detalle-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.admin-contacto-detalle-cabecera h3 {
+    margin: 0;
+    color: #800000;
+}
+
+.admin-contacto-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px 20px;
+    margin-bottom: 18px;
+}
+
+.admin-contacto-info p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.admin-contacto-mensaje {
+    padding: 18px;
+    border-left: 4px solid #be1a19;
+    background: #ffffff;
+    border-radius: 8px;
+}
+
+.admin-contacto-mensaje p {
+    margin-bottom: 0;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@keyframes contactoAbrir {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 650px) {
+    .admin-contacto .admin-registro {
+        align-items: stretch;
+    }
+
+    .admin-contacto-detalle {
+        padding: 15px;
+    }
+}
