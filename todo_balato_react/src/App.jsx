@@ -7,6 +7,8 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import AuthPage from "./pages/AuthPage";
 import { obtenerProductos } from "./services/catalogoApi";
+import QuienesSomos from "./pages/QuienesSomos";
+import { productos } from "./data/productos";
 import {
   calcularCarrito,
   crearOrden,
@@ -198,6 +200,10 @@ useEffect(() => {
             cargando={cargandoProductos}
             error={errorProductos}
           />
+        {pagina === "inicio" && <Home onNavegar={navegar} onAgregar={agregar} />}
+        {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
+        {pagina === "catalogo" && (
+          <Catalog key={categoria} categoriaInicial={categoria} busqueda={busqueda} onAgregar={agregar} />
         )}
 
           {pagina === "catalogo" && (
