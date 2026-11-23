@@ -4,7 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .catalogo_client import obtener_producto
+from .catalogo_client import (
+    CatalogoNoDisponibleError,
+    ProductoNoEncontradoError,
+    RespuestaCatalogoInvalidaError,
+    obtener_producto,
+)
 from .models import Orden, DetalleOrden
 from .permissions import EsClienteActivo
 
@@ -17,17 +22,22 @@ def calcular_lineas(items):
     for item in items:
         producto_id = item.get("producto_id")
         cantidad = item.get("cantidad", 0)
-        producto = obtener_producto(producto_id)
 
-        if not producto:
+        try:
+            producto = obtener_producto(producto_id)
+        except ProductoNoEncontradoError:
             lineas.append({
-                "producto_id": producto_id, "nombre": None, "precio_unitario": None,
-                "cantidad": cantidad, "subtotal": 0, "problema": "no_existe",
+                "producto_id": producto_id,
+                "nombre": None,
+                "precio_unitario": None,
+                "cantidad": cantidad,
+                "subtotal": 0,
+                "problema": "no_existe",
             })
             puede_pagar = False
             continue
 
-        stock_disponible = producto.get("stock_fisico", 0) - producto.get("stock_reservado", 0)
+        stock_disponible = producto.get("stock_disponible", 0)
         problema = None
         if stock_disponible <= 0:
             problema = "agotado"
@@ -66,7 +76,18 @@ class CarritoCalcularView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        lineas, total, puede_pagar = calcular_lineas(items)
+        try:
+            lineas, total, puede_pagar = calcular_lineas(items)
+        except CatalogoNoDisponibleError as exc:
+            return Response(
+                {"error": {"codigo": "catalogo_no_disponible", "mensaje": str(exc)}},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except RespuestaCatalogoInvalidaError as exc:
+            return Response(
+                {"error": {"codigo": "respuesta_catalogo_invalida", "mensaje": str(exc)}},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         return Response({
             "moneda": "CLP",
@@ -100,7 +121,18 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        lineas, total, puede_pagar = calcular_lineas(items)
+        try:
+            lineas, total, puede_pagar = calcular_lineas(items)
+        except CatalogoNoDisponibleError as exc:
+            return Response(
+                {"error": {"codigo": "catalogo_no_disponible", "mensaje": str(exc)}},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except RespuestaCatalogoInvalidaError as exc:
+            return Response(
+                {"error": {"codigo": "respuesta_catalogo_invalida", "mensaje": str(exc)}},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         if not puede_pagar:
             return Response(
@@ -140,9 +172,6 @@ class CheckoutView(APIView):
                 cantidad=l["cantidad"],
                 subtotal=Decimal(l["subtotal"]),
             )
-
-        # TODO: reservar stock vía endpoint interno de Catálogo (pendiente)
-        # TODO: crear transacción real en Webpay sandbox (pendiente)
 
         return Response(self._serializar_orden(orden), status=status.HTTP_201_CREATED)
 
