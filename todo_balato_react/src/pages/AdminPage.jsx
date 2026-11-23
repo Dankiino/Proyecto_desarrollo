@@ -309,7 +309,7 @@ export default function AdminPage() {
         return (
             <section className="admin-login">
                 <h1>Administración — Todo Balato</h1>
-                <p>Acceso exclusivo para la cuenta administradora autorizada.</p>
+                <p>Ingresa con tu cuenta de administrador para gestionar productos y categorías.</p>
 
                 <form onSubmit={ingresar} className="admin-form">
                     <label>

@@ -39,14 +39,6 @@ def verificar_admin(request):
         "http://127.0.0.1:8000/api"
     ).rstrip("/")
 
-    correo_autorizado = os.environ.get(
-        "ADMIN_CORREO_AUTORIZADO", ""
-    ).strip().casefold()
-
-    if not correo_autorizado:
-        raise GestionNoDisponible(
-            "No está configurado el correo administrador."
-        )
 
     peticion = urllib.request.Request(
         f"{gestion_url}/usuarios/me",
@@ -81,8 +73,6 @@ def verificar_admin(request):
     if (
         usuario.get("rol") != "ADMIN"
         or usuario.get("estado") != "ACTIVO"
-        or str(usuario.get("correo", "")).strip().casefold()
-        != correo_autorizado
     ):
         raise PermissionDenied(
             "No tienes permisos para administrar el catálogo."
