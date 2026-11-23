@@ -7,7 +7,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import AuthPage from "./pages/AuthPage";
 import QuienesSomos from "./pages/QuienesSomos";
-import { productos } from "./data/productos";
+import ProductDetail from "./pages/ProductDetail";
 import {
   calcularCarrito,
   crearOrden,
@@ -19,6 +19,7 @@ import {
 
 export default function App() {
   const [pagina, setPagina] = useState("inicio");
+  const [productoId, setProductoId] = useState("");
   const [categoria, setCategoria] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [carrito, setCarrito] = useState([]); // [{ id, cantidad }]
@@ -61,15 +62,19 @@ export default function App() {
     setPagina("catalogo");
   };
 
-  const agregar = (id) => {
+  const agregar = (id, producto) => {
     setCotizacion(null);
     setErrorCarrito("");
     setOrden(null);
     llaveOrden.current = null;
     setCarrito((c) =>
       c.some((i) => i.id === id)
-        ? c.map((i) => (i.id === id ? { ...i, cantidad: i.cantidad + 1 } : i))
-        : [...c, { id, cantidad: 1 }]
+        ? c.map((i) => (
+          i.id === id
+            ? { ...i, cantidad: i.cantidad + 1, producto: producto || i.producto }
+            : i
+        ))
+        : [...c, { id, cantidad: 1, producto }]
     );
   };
 
@@ -88,19 +93,26 @@ export default function App() {
   };
 
   const lineas = carrito.map((item) => {
-    const producto = productos.find((p) => p.id === item.id);
+    const producto = item.producto || {};
     const calculada = cotizacion?.lineas?.find((linea) => linea.producto_id === item.id);
     return {
       ...producto,
+      id: item.id,
       cantidad: item.cantidad,
-      nombre: calculada?.nombre || producto?.nombre,
-      precio: calculada?.precio_unitario ?? producto?.precio,
+      nombre: calculada?.nombre || producto.nombre || "Producto",
+      precio: calculada?.precio_unitario ?? producto.precio ?? 0,
       subtotal: calculada?.subtotal,
       problema: calculada?.problema,
     };
   });
   const total = cotizacion?.total ?? lineas.reduce((suma, linea) => suma + linea.precio * linea.cantidad, 0);
   const cantidadCarrito = carrito.reduce((suma, i) => suma + i.cantidad, 0);
+
+  const verProducto = (id) => {
+    setProductoId(id);
+    setPagina("producto");
+    window.scrollTo(0, 0);
+  };
 
   const iniciarSesion = async (datos) => {
     const tokens = await login(datos);
@@ -138,10 +150,25 @@ export default function App() {
       />
 
       <main className="contenido">
-        {pagina === "inicio" && <Home onNavegar={navegar} onAgregar={agregar} />}
+        {pagina === "inicio" && (
+          <Home onNavegar={navegar} onAgregar={agregar} onVerProducto={verProducto} />
+        )}
         {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
         {pagina === "catalogo" && (
-          <Catalog key={categoria} categoriaInicial={categoria} busqueda={busqueda} onAgregar={agregar} />
+          <Catalog
+            key={categoria}
+            categoriaInicial={categoria}
+            busqueda={busqueda}
+            onAgregar={agregar}
+            onVerProducto={verProducto}
+          />
+        )}
+        {pagina === "producto" && (
+          <ProductDetail
+            productoId={productoId}
+            onVolver={() => navegar("catalogo")}
+            onAgregar={agregar}
+          />
         )}
         {pagina === "carrito" && (
           <CartPage
