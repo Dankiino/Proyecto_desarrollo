@@ -15,7 +15,9 @@ copia anterior `todo-balato-integracion`.
   versión no procesa pagos ni pide datos de tarjeta.
 - Inicio, catálogo y detalle consultan el servicio público de Catálogo; React no
   se conecta directamente a MongoDB ni usa el fixture local como fuente de
-  productos.
+  productos. Inicio muestra las categorías activas y hasta cuatro productos
+  disponibles (`disponible=true`), junto con los textos, el banner y el tema
+  activo obtenidos desde Gestión.
 - La disponibilidad se muestra en las tarjetas y los productos agotados no se
   pueden agregar al carrito. Comercio vuelve a validar precio y stock.
 
@@ -41,8 +43,11 @@ no una plantilla Django.
 | Login | Gestión `POST /api/login` |
 | Consultar usuario | Gestión `GET /api/usuarios/me` |
 | Logout | Gestión `POST /api/logout` |
+| Contenidos de Inicio | Gestión `GET /api/contenidos/inicio` |
+| Tema activo del sitio | Gestión `GET /api/temas/activo` |
 | Listar categorías activas | Catálogo `GET /api/categorias` |
 | Listar productos activos | Catálogo `GET /api/productos?page=1&page_size=20` |
+| Destacados disponibles de Inicio | Catálogo `GET /api/productos?page=1&page_size=4&disponible=true` |
 | Detalle de producto activo | Catálogo `GET /api/productos/<producto_id>` |
 | Calcular carrito | Comercio `POST /api/carrito/calcular` |
 | Combinar carrito al iniciar sesión | Comercio `POST /api/carrito/combinar` |
@@ -107,6 +112,51 @@ Un producto inactivo o inexistente responde `404`.
 Inicio y catálogo muestran carga, errores con opción de reintento y mensajes
 cuando no hay resultados. Las tarjetas muestran “Agotado” y deshabilitan la
 acción de agregar cuando `disponible` es `false`.
+
+## Página de Inicio (Catálogo y Gestión)
+
+La vista [Home.jsx](src/pages/Home.jsx) conserva el diseño, la navegación y las
+tarjetas existentes (`ProductCard`), y consulta dos servicios:
+
+- **Catálogo (`VITE_CATALOGO_API_URL`):**
+  - `GET /api/categorias` para mostrar las categorías activas (cada botón navega
+    a Catálogo filtrado por esa categoría).
+  - `GET /api/productos?page=1&page_size=4&disponible=true` para mostrar hasta
+    cuatro productos disponibles (con botones *Ver detalle* y *Agregar al Carrito*).
+- **Gestión (`VITE_GESTION_API_URL`):**
+  - `GET /api/contenidos/inicio` para obtener los textos administrables
+    (`titulo`, `eslogan`, `titulo_categorias`, `titulo_destacados`) y el banner
+    (`banner_principal` con `texto_alternativo` y `banner_enlace`).
+  - `GET /api/temas/activo` (cargado desde `App.jsx`) para aplicar los colores
+    del tema activo (`color_primario`, `color_secundario`, `color_fondo`,
+    `color_texto`, `color_acento`) mediante variables CSS.
+
+Cada bloque (contenidos/tema, categorías y productos destacados) maneja de forma
+independiente su estado de carga, error con botón **Reintentar** y estado vacío,
+sin presentar un fallo o un formato inválido como si fuera una respuesta exitosa.
+
+### Cómo probar Inicio
+
+1. **Con servicios reales:** levanta Gestión (`8000`), Comercio (`8001`) y
+   Catálogo (`8002`), configura `.env.local` desde `.env.example` e inicia Vite
+   (`npm run dev -- --strictPort`).
+2. **Con respuestas de prueba (sin esperar a Gestión/DEA-35 o sin backend):**
+   define `VITE_INICIO_MOCK` en `.env.local` o agrega `?mockInicio=<modo>` en la
+   URL del navegador (`http://localhost:5173/?mockInicio=exito`). Modos disponibles:
+   - `exito` (o `true`): simula Catálogo y Gestión con 4 productos disponibles,
+     categorías, banner y tema `balato-crema`.
+   - `gestion`: consulta **Catálogo real** y simula solo los contenidos y tema de
+     Gestión mientras se termina `DEA-35`.
+   - `tema_oscuro` / `tema_clasico`: prueba el cambio de tema dinámico.
+   - `vacio`: verifica los mensajes cuando no hay contenidos, categorías ni
+     productos disponibles.
+   - `error`, `error_catalogo`, `error_gestion`: verifica los mensajes de error y
+     el botón **Reintentar** ante caída de uno o ambos servicios.
+3. **Comprobaciones recomendadas:**
+   - Hacer clic en una categoría y comprobar que abre Catálogo con ese filtro.
+   - Hacer clic en el banner, en *Ver detalle* y en *Agregar al Carrito*.
+   - Revisar en escritorio y móvil (por ejemplo `360px` y `1280px`) y recorrer
+     toda la página usando solo teclado (`Tab`, `Shift+Tab` y `Enter`).
 
 ## Ejecutar en Windows
 

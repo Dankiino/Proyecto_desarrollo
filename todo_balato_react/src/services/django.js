@@ -1,8 +1,18 @@
-const gestionUrl = import.meta.env.VITE_GESTION_API_URL || "http://127.0.0.1:8000/api";
-const comercioUrl = import.meta.env.VITE_COMERCIO_API_URL || "http://127.0.0.1:8001/api";
-const catalogoUrl = import.meta.env.VITE_CATALOGO_API_URL || "http://127.0.0.1:8002/api";
+import {
+  CATEGORIAS_INICIO_MOCK,
+  CONTENIDOS_INICIO_MOCK,
+  PRODUCTOS_INICIO_MOCK,
+  TEMAS_MOCK,
+  obtenerModoMockInicio,
+  usaMockCatalogo,
+  usaMockGestion,
+} from "../data/mockInicio.js";
 
-async function obtener(url, mensajeError) {
+const gestionUrl = import.meta.env?.VITE_GESTION_API_URL || "http://127.0.0.1:8000/api";
+const comercioUrl = import.meta.env?.VITE_COMERCIO_API_URL || "http://127.0.0.1:8001/api";
+const catalogoUrl = import.meta.env?.VITE_CATALOGO_API_URL || "http://127.0.0.1:8002/api";
+
+async function obtener(url, mensajeError, servicio = "El servicio") {
   let respuesta;
   try {
     respuesta = await fetch(url);
@@ -14,7 +24,7 @@ async function obtener(url, mensajeError) {
   try {
     resultado = await respuesta.json();
   } catch {
-    throw new Error("Catálogo devolvió una respuesta que no es JSON válido.");
+    throw new Error(`${servicio} devolvió una respuesta que no es JSON válido.`);
   }
 
   if (!respuesta.ok) {
@@ -109,18 +119,104 @@ export const quitarDelCarrito = (id, token) => enviar(
   "DELETE",
 );
 
-export const obtenerCategoriasCatalogo = () => obtener(
-  `${catalogoUrl}/categorias`,
-  "No se pudieron cargar las categorías del catálogo.",
-);
+export const obtenerCategoriasCatalogo = async () => {
+  const modo = obtenerModoMockInicio();
+  if (usaMockCatalogo(modo)) {
+    if (modo === "error" || modo === "error_catalogo") {
+      throw new Error("No se pudieron cargar las categorías del catálogo.");
+    }
+    if (modo === "vacio") return { results: [] };
+    return CATEGORIAS_INICIO_MOCK;
+  }
+  return obtener(
+    `${catalogoUrl}/categorias`,
+    "No se pudieron cargar las categorías del catálogo.",
+    "Catálogo",
+  );
+};
 
-export const listarProductosCatalogo = ({ page = 1, pageSize = 20 } = {}) => obtener(
-  `${catalogoUrl}/productos?page=${page}&page_size=${pageSize}`,
-  "No se pudieron cargar los productos del catálogo.",
-);
+export const listarProductosCatalogo = async ({ page = 1, pageSize = 20, disponible = false } = {}) => {
+  const modo = obtenerModoMockInicio();
+  if (usaMockCatalogo(modo)) {
+    if (modo === "error" || modo === "error_catalogo") {
+      throw new Error("No se pudieron cargar los productos del catálogo.");
+    }
+    if (modo === "vacio") return { count: 0, page, page_size: pageSize, results: [] };
+    const lista = disponible
+      ? PRODUCTOS_INICIO_MOCK.results.filter((p) => p.disponible)
+      : PRODUCTOS_INICIO_MOCK.results;
+    return {
+      ...PRODUCTOS_INICIO_MOCK,
+      page,
+      page_size: pageSize,
+      results: lista.slice(0, pageSize),
+    };
+  }
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (disponible) params.set("disponible", "true");
+  return obtener(
+    `${catalogoUrl}/productos?${params.toString()}`,
+    "No se pudieron cargar los productos del catálogo.",
+    "Catálogo",
+  );
+};
 
-export const obtenerProductoCatalogo = (productoId) => obtener(
-  `${catalogoUrl}/productos/${encodeURIComponent(productoId)}`,
-  "No se pudo cargar el producto.",
-);
+export const obtenerProductoCatalogo = async (productoId) => {
+  const modo = obtenerModoMockInicio();
+  if (usaMockCatalogo(modo)) {
+    if (modo === "error" || modo === "error_catalogo") {
+      throw new Error("No se pudo cargar el producto.");
+    }
+    const encontrado = PRODUCTOS_INICIO_MOCK.results.find((p) => p.id === productoId);
+    if (!encontrado) throw new Error("El producto no existe o no está disponible.");
+    return {
+      ...encontrado,
+      descripcion: `Detalle de prueba para ${encontrado.nombre}.`,
+      stock_disponible: 10,
+      imagenes: encontrado.imagen_principal ? [encontrado.imagen_principal] : [],
+      actualizado_en: new Date().toISOString(),
+    };
+  }
+  return obtener(
+    `${catalogoUrl}/productos/${encodeURIComponent(productoId)}`,
+    "No se pudo cargar el producto.",
+    "Catálogo",
+  );
+};
+
+export const obtenerContenidosInicio = async () => {
+  const modo = obtenerModoMockInicio();
+  if (usaMockGestion(modo)) {
+    if (modo === "error" || modo === "error_gestion") {
+      throw new Error("No se pudieron cargar los contenidos de Inicio desde Gestión.");
+    }
+    if (modo === "vacio") return { pagina: "inicio", results: [] };
+    return CONTENIDOS_INICIO_MOCK;
+  }
+  return obtener(
+    `${gestionUrl}/contenidos/inicio`,
+    "No se pudieron cargar los contenidos de Inicio desde Gestión.",
+    "Gestión",
+  );
+};
+
+export const obtenerTemaActivo = async () => {
+  const modo = obtenerModoMockInicio();
+  if (usaMockGestion(modo)) {
+    if (modo === "error" || modo === "error_gestion") {
+      throw new Error("No se pudo cargar el tema activo desde Gestión.");
+    }
+    if (modo === "tema_oscuro") return TEMAS_MOCK["balato-oscuro"];
+    if (modo === "tema_clasico") return TEMAS_MOCK["balato-clasico"];
+    return TEMAS_MOCK["balato-crema"];
+  }
+  return obtener(
+    `${gestionUrl}/temas/activo`,
+    "No se pudo cargar el tema activo desde Gestión.",
+    "Gestión",
+  );
+};
 

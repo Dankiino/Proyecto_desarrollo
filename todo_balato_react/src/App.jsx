@@ -16,11 +16,35 @@ import {
   login,
   logout,
   miUsuario,
+  obtenerTemaActivo,
   quitarDelCarrito,
   registro,
 } from "./services/django";
 
 const CLAVE_CARRITO_ANONIMO = "todo_balato_carrito_anonimo";
+const COLOR_HEX = /^#[0-9a-fA-F]{6}$/;
+
+function aplicarTemaCss(datosTema) {
+  const tema = datosTema?.tema && typeof datosTema.tema === "object" ? datosTema.tema : datosTema;
+  if (!tema || typeof tema !== "object") return false;
+
+  const mapa = {
+    "--color-primario": tema.color_primario,
+    "--color-secundario": tema.color_secundario,
+    "--color-fondo": tema.color_fondo,
+    "--color-texto": tema.color_texto,
+    "--color-acento": tema.color_acento,
+  };
+
+  let aplicado = false;
+  for (const [variable, valor] of Object.entries(mapa)) {
+    if (typeof valor === "string" && COLOR_HEX.test(valor.trim())) {
+      document.documentElement.style.setProperty(variable, valor.trim());
+      aplicado = true;
+    }
+  }
+  return aplicado;
+}
 
 function leerCarritoAnonimo() {
   try {
@@ -48,8 +72,33 @@ export default function App() {
   const [sesion, setSesion] = useState(null);
   const [cotizacion, setCotizacion] = useState(null);
   const [errorCarrito, setErrorCarrito] = useState("");
+  const [errorTema, setErrorTema] = useState("");
+  const [intentoTema, setIntentoTema] = useState(0);
   const [orden, setOrden] = useState(null);
   const llaveOrden = useRef(null);
+
+  useEffect(() => {
+    let vigente = true;
+    obtenerTemaActivo()
+      .then((tema) => {
+        if (!vigente) return;
+        const aplicado = aplicarTemaCss(tema);
+        if (!aplicado) {
+          setErrorTema("Gestión devolvió un tema sin colores válidos.");
+        } else {
+          setErrorTema("");
+        }
+      })
+      .catch((error) => {
+        if (vigente) {
+          setErrorTema(error?.message || "No se pudo cargar el tema activo desde Gestión.");
+        }
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [intentoTema]);
 
   useEffect(() => {
     // Con sesión iniciada el carrito vive en Comercio, no en el navegador.
@@ -224,7 +273,16 @@ export default function App() {
 
       <main className="contenido">
         {pagina === "inicio" && (
-          <Home onNavegar={navegar} onAgregar={agregar} onVerProducto={verProducto} />
+          <Home
+            onNavegar={navegar}
+            onAgregar={agregar}
+            onVerProducto={verProducto}
+            errorTema={errorTema}
+            onReintentarTema={() => {
+              setErrorTema("");
+              setIntentoTema((actual) => actual + 1);
+            }}
+          />
         )}
         {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
         {pagina === "catalogo" && (
