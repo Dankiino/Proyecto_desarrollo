@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from django.db import IntegrityError, transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,6 +13,76 @@ from .catalogo_client import (
 )
 from .models import Orden, DetalleOrden
 from .permissions import EsClienteActivo
+
+
+def _error_validacion(campo, mensaje):
+    return Response(
+        {
+            "error": {
+                "codigo": "validacion",
+                "mensaje": "Los datos enviados no son válidos.",
+                "campos": {campo: [mensaje]},
+            }
+        },
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def _validar_items(items):
+    if not isinstance(items, list) or not items:
+        return _error_validacion("items", "El carrito debe contener al menos un producto.")
+
+    productos_vistos = set()
+    for indice, item in enumerate(items):
+        campo = f"items[{indice}]"
+        if not isinstance(item, dict):
+            return _error_validacion(campo, "Cada producto debe ser un objeto.")
+
+        producto_id = item.get("producto_id")
+        if not isinstance(producto_id, str) or not producto_id.strip():
+            return _error_validacion(f"{campo}.producto_id", "Debe indicar un producto válido.")
+        if producto_id in productos_vistos:
+            return _error_validacion(
+                f"{campo}.producto_id",
+                "El producto está repetido; envíe una sola línea por producto.",
+            )
+        productos_vistos.add(producto_id)
+
+        cantidad = item.get("cantidad")
+        if type(cantidad) is not int or cantidad <= 0:
+            return _error_validacion(
+                f"{campo}.cantidad",
+                "La cantidad debe ser un número entero mayor que cero.",
+            )
+
+    return None
+
+
+def _coincide_con_orden(orden, cliente_id, items):
+    if str(orden.cliente_id) != str(cliente_id):
+        return False
+
+    cantidades_pedidas = {
+        item["producto_id"]: item["cantidad"]
+        for item in items
+    }
+    cantidades_guardadas = {
+        linea.producto_id: linea.cantidad
+        for linea in orden.lineas.all()
+    }
+    return cantidades_pedidas == cantidades_guardadas
+
+
+def _conflicto_idempotencia():
+    return Response(
+        {
+            "error": {
+                "codigo": "conflicto",
+                "mensaje": "La clave Idempotency-Key ya se usó para otro pedido.",
+            }
+        },
+        status=status.HTTP_409_CONFLICT,
+    )
 
 
 def calcular_lineas(items):
@@ -39,9 +110,7 @@ def calcular_lineas(items):
 
         stock_disponible = producto.get("stock_disponible", 0)
         problema = None
-        if str(producto.get("estado", "ACTIVO")).upper() != "ACTIVO":
-            problema = "inactivo"
-        elif stock_disponible <= 0:
+        if stock_disponible <= 0:
             problema = "agotado"
         elif cantidad > stock_disponible:
             problema = "stock_insuficiente"
@@ -72,11 +141,9 @@ class CarritoCalcularView(APIView):
 
     def post(self, request):
         items = request.data.get("items", [])
-        if not items:
-            return Response(
-                {"error": {"codigo": "validacion", "mensaje": "El carrito está vacío."}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        error = _validar_items(items)
+        if error:
+            return error
 
         try:
             lineas, total, puede_pagar = calcular_lineas(items)
@@ -112,15 +179,30 @@ class CheckoutView(APIView):
                 {"error": {"codigo": "validacion", "mensaje": "Falta la cabecera Idempotency-Key."}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if len(idempotency_key) > 100:
+            return _error_validacion(
+                "Idempotency-Key",
+                "La clave no puede superar los 100 caracteres.",
+            )
 
         existente = Orden.objects.filter(idempotency_key=idempotency_key).first()
         if existente:
+            if _validar_items(items) or not _coincide_con_orden(
+                existente, request.user.id, items
+            ):
+                return _conflicto_idempotencia()
             return Response(self._serializar_orden(existente), status=status.HTTP_200_OK)
 
-        if not items:
-            return Response(
-                {"error": {"codigo": "validacion", "mensaje": "El carrito está vacío."}},
-                status=status.HTTP_400_BAD_REQUEST,
+        error = _validar_items(items)
+        if error:
+            return error
+
+        if total_esperado is not None and (
+            type(total_esperado) is not int or total_esperado < 0
+        ):
+            return _error_validacion(
+                "total_esperado",
+                "Debe ser un total entero no negativo.",
             )
 
         try:
@@ -156,24 +238,33 @@ class CheckoutView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        orden = Orden.objects.create(
-            id=uuid.uuid4(),
-            cliente_id=request.user.id,
-            estado="PENDIENTE_PAGO",
-            moneda="CLP",
-            total=Decimal(total),
-            idempotency_key=idempotency_key,
-        )
+        try:
+            with transaction.atomic():
+                orden = Orden.objects.create(
+                    id=uuid.uuid4(),
+                    cliente_id=request.user.id,
+                    estado="PENDIENTE_PAGO",
+                    moneda="CLP",
+                    total=Decimal(total),
+                    idempotency_key=idempotency_key,
+                )
 
-        for l in lineas:
-            DetalleOrden.objects.create(
-                orden=orden,
-                producto_id=l["producto_id"],
-                nombre_producto=l["nombre"] or "",
-                precio_unitario=Decimal(l["precio_unitario"] or 0),
-                cantidad=l["cantidad"],
-                subtotal=Decimal(l["subtotal"]),
-            )
+                for linea in lineas:
+                    DetalleOrden.objects.create(
+                        orden=orden,
+                        producto_id=linea["producto_id"],
+                        nombre_producto=linea["nombre"] or "",
+                        precio_unitario=Decimal(linea["precio_unitario"] or 0),
+                        cantidad=linea["cantidad"],
+                        subtotal=Decimal(linea["subtotal"]),
+                    )
+        except IntegrityError:
+            existente = Orden.objects.filter(idempotency_key=idempotency_key).first()
+            if existente is None:
+                raise
+            if not _coincide_con_orden(existente, request.user.id, items):
+                return _conflicto_idempotencia()
+            return Response(self._serializar_orden(existente), status=status.HTTP_200_OK)
 
         return Response(self._serializar_orden(orden), status=status.HTTP_201_CREATED)
 
