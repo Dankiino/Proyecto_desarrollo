@@ -1,14 +1,25 @@
+
 import { useCallback, useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
-import { listarProductosCatalogo, obtenerCategoriasCatalogo } from "../services/django";
+import {
+  listarProductosCatalogo,
+  obtenerCategoriasCatalogo,
+} from "../services/django";
 import { clp } from "../utils/formato";
 
 const PRECIO_MAX = 40000;
 
-export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerProducto }) {
+export default function Catalog({
+  categoriaInicial = "",
+  busqueda = "",
+  onAgregar,
+  onVerProducto,
+}) {
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
-  const [seleccionadas, setSeleccionadas] = useState(categoriaInicial ? [categoriaInicial] : []);
+  const [seleccionadas, setSeleccionadas] = useState(
+    categoriaInicial ? [categoriaInicial] : []
+  );
   const [precioMax, setPrecioMax] = useState(PRECIO_MAX);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -16,13 +27,20 @@ export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerPr
   const cargarCatalogo = useCallback(async () => {
     setCargando(true);
     setError("");
+
     try {
       const [catsData, prodsData] = await Promise.all([
         obtenerCategoriasCatalogo(),
         listarProductosCatalogo({ page: 1, pageSize: 50 }),
       ]);
-      setCategorias(Array.isArray(catsData?.results) ? catsData.results : []);
-      setProductos(Array.isArray(prodsData?.results) ? prodsData.results : []);
+
+      setCategorias(
+        Array.isArray(catsData?.results) ? catsData.results : []
+      );
+
+      setProductos(
+        Array.isArray(prodsData?.results) ? prodsData.results : []
+      );
     } catch (err) {
       setError(err?.message || "Error al cargar el catálogo.");
       setProductos([]);
@@ -36,15 +54,29 @@ export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerPr
   }, [cargarCatalogo]);
 
   const alternar = (catId) =>
-    setSeleccionadas((s) => (s.includes(catId) ? s.filter((x) => x !== catId) : [...s, catId]));
+    setSeleccionadas((s) =>
+      s.includes(catId)
+        ? s.filter((x) => x !== catId)
+        : [...s, catId]
+    );
 
   const texto = (busqueda || "").trim().toLowerCase();
+
   const visibles = productos.filter((p) => {
-    const prodCats = Array.isArray(p.categorias) ? p.categorias.map((c) => c.id || c) : [];
+    const prodCats = Array.isArray(p.categorias)
+      ? p.categorias.map((c) => c.id || c)
+      : [];
+
     const coincideCategoria =
-      seleccionadas.length === 0 || seleccionadas.some((id) => prodCats.includes(id));
-    const coincidePrecio = Number(p.precio ?? 0) <= precioMax;
-    const coincideTexto = (p.nombre || "").toLowerCase().includes(texto);
+      seleccionadas.length === 0 ||
+      seleccionadas.some((id) => prodCats.includes(id));
+
+    const coincidePrecio =
+      Number(p.precio ?? 0) <= precioMax;
+
+    const coincideTexto =
+      (p.nombre || "").toLowerCase().includes(texto);
+
     return coincideCategoria && coincidePrecio && coincideTexto;
   });
 
@@ -52,8 +84,10 @@ export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerPr
     <div className="catalogo">
       <aside className="filtros" aria-label="Filtros">
         <h2>Filtros</h2>
+
         <fieldset>
           <legend>Categoría</legend>
+
           {categorias.map((c) => (
             <label key={c.id}>
               <input
@@ -65,7 +99,11 @@ export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerPr
             </label>
           ))}
         </fieldset>
-        <label htmlFor="precio-max">Precio máximo: {clp(precioMax)}</label>
+
+        <label htmlFor="precio-max">
+          Precio máximo: {clp(precioMax)}
+        </label>
+
         <input
           id="precio-max"
           type="range"
@@ -73,26 +111,38 @@ export default function Catalog({ categoriaInicial, busqueda, onAgregar, onVerPr
           max={PRECIO_MAX}
           step="1000"
           value={precioMax}
-          onChange={(e) => setPrecioMax(Number(e.target.value))}
+          onChange={(e) =>
+            setPrecioMax(Number(e.target.value))
+          }
         />
       </aside>
 
       <section>
-        <h1 className="titulo-seccion">Catálogo de Productos</h1>
+        <h1 className="titulo-seccion">
+          Catálogo de Productos
+        </h1>
 
-        {cargando && <p role="status">Cargando catálogo...</p>}
+        {cargando && (
+          <p role="status">Cargando catálogo...</p>
+        )}
 
         {!cargando && error && (
           <div role="alert">
             <p>{error}</p>
-            <button type="button" onClick={cargarCatalogo}>
+
+            <button
+              type="button"
+              onClick={cargarCatalogo}
+            >
               Reintentar
             </button>
           </div>
         )}
 
         {!cargando && !error && visibles.length === 0 && (
-          <p>No hay productos que coincidan con tu búsqueda.</p>
+          <p>
+            No hay productos que coincidan con tu búsqueda.
+          </p>
         )}
 
         {!cargando && !error && visibles.length > 0 && (

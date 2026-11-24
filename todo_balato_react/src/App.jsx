@@ -19,6 +19,7 @@ import {
   quitarDelCarrito,
   registro,
 } from "./services/django";
+import Contacto from "./pages/Contacto";
 
 const CLAVE_CARRITO_ANONIMO = "todo_balato_carrito_anonimo";
 
@@ -50,6 +51,10 @@ export default function App() {
   const [errorCarrito, setErrorCarrito] = useState("");
   const [orden, setOrden] = useState(null);
   const llaveOrden = useRef(null);
+
+
+
+
 
   useEffect(() => {
     // Con sesión iniciada el carrito vive en Comercio, no en el navegador.
@@ -223,10 +228,19 @@ export default function App() {
       />
 
       <main className="contenido">
+
         {pagina === "inicio" && (
-          <Home onNavegar={navegar} onAgregar={agregar} onVerProducto={verProducto} />
+          <Home
+            onNavegar={navegar}
+            onAgregar={agregar}
+            onVerProducto={verProducto}
+          />
         )}
-        {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
+
+        {pagina === "quienes-somos" && (
+          <QuienesSomos onNavegar={navegar} />
+        )}
+
         {pagina === "catalogo" && (
           <Catalog
             key={categoria}
@@ -236,6 +250,7 @@ export default function App() {
             onVerProducto={verProducto}
           />
         )}
+
         {pagina === "producto" && (
           <ProductDetail
             productoId={productoId}
@@ -243,6 +258,9 @@ export default function App() {
             onAgregar={agregar}
           />
         )}
+
+
+
         {pagina === "carrito" && (
           <CartPage
             lineas={lineas}
@@ -274,6 +292,7 @@ export default function App() {
             onLogout={cerrarSesion}
           />
         )}
+        {pagina === "contacto" && <Contacto />}
       </main>
 
       <Footer onNavegar={navegar} />
