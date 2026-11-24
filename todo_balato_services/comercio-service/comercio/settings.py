@@ -75,9 +75,10 @@ DATABASES = {
     "default": dj_database_url.parse(
         os.environ["COMERCIO_DATABASE_URL"],
         conn_max_age=600,
-        ssl_require=True,
+        ssl_require=not os.environ["COMERCIO_DATABASE_URL"].startswith("sqlite"),
     )
 }
+
 
 
 # Password validation
@@ -146,6 +147,8 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
 
 from corsheaders.defaults import default_headers

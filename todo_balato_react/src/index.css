@@ -400,6 +400,31 @@ button { font-family: inherit; cursor: pointer; }
   cursor: not-allowed;
 }
 
+.producto-detalle-boton {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.producto-detalle {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.producto-galeria {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.producto-galeria img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 @media (max-width: 950px) {
   .productos-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
