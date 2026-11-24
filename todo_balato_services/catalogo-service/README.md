@@ -311,3 +311,39 @@ debe revisarse con las validaciones e índices definidos en DEA-32.
 Las pruebas automatizadas utilizan objetos simulados. Queda
 pendiente la validación formal de integración con MongoDB y la
 coordinación con las operaciones de reserva de Comercio (DEA-46).
+### Validacion de compatibilidad con DEA-32
+
+Pruebas realizadas el 24/11/2026.
+
+- Se inspeccionaron los validadores e indices de la coleccion productos.
+- La validacion de MongoDB es estricta y rechaza documentos invalidos.
+- Los 14 productos existentes cumplen el esquema vigente.
+- El esquema permite almacenar el campo historial_ajustes.
+- El indice _id permite localizar eficientemente el producto.
+- Se verifico la persistencia del ajuste de 50 a 70 unidades y su auditoria administrativa.
+
+### Pruebas de integracion con MongoDB 8.0
+
+Se utilizo Docker con una base local catalogo_test,
+en el puerto 27018, replicando el validador vigente.
+
+Resultados:
+
+- 27 de 27 pruebas automatizadas aprobadas.
+- Ajuste valido de 50 a 80 unidades: aprobado.
+- Conservacion de las 10 unidades reservadas: aprobado.
+- Incremento de version y registro del historial: aprobado.
+- Rechazo de ajuste inferior al stock reservado: aprobado.
+- Rechazo directo de MongoDB con codigo 121: aprobado.
+- Conservacion del documento tras los intentos invalidos: aprobado.
+
+No se modificaron los validadores ni los indices de la
+base compartida durante estas pruebas de compatibilidad.
+
+La compatibilidad con el esquema actual de DEA-32 queda
+verificada. Los futuros cambios de esquema deben conservar
+el soporte para historial_ajustes.
+
+Queda pendiente la integracion con las operaciones de
+reserva, consolidacion y liberacion de DEA-46.
+
