@@ -226,8 +226,11 @@ from .repository import (
     actualizar_categoria,
 )
 
-from .serializers import ProductoCrearSerializer, CategoriaSerializer
-
+from .serializers import (
+    ProductoCrearSerializer,
+    CategoriaSerializer,
+    AjusteInventarioSerializer,
+)
 class HealthView(APIView):
     def get(self, request):
         return Response({"status": "ok", "service": "catalogo-service"})
@@ -454,10 +457,7 @@ class AdminProductoDetalleView(APIView):
         campos_editables = {
             "nombre",
             "descripcion",
-            "precio",
-            "stock_fisico",
             "categoria_id",
-            "imagenes",
             "activo",
         }
 
@@ -503,20 +503,84 @@ class AdminProductoDetalleView(APIView):
         if "activo" in campos_recibidos:
             cambios["activo"] = request.data["activo"]
 
-        stock_reservado = producto.get("stock_reservado", 0)
-
-        if (
-            "stock_fisico" in cambios
-            and cambios["stock_fisico"] < stock_reservado
-        ):
-            return Response(
-                {"error": "El stock físico no puede ser menor al stock reservado"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         actualizado = actualizar_producto(producto_id, cambios)
 
         return Response({
             "mensaje": "Producto actualizado correctamente",
             "producto": actualizado
         })
+
+
+class AdminAjustesInventarioView(APIView):
+
+    def get(self, request, producto_id):
+        verificar_admin(request)
+
+        producto = repository.obtener_producto(
+            producto_id,
+            solo_activos=False
+        )
+
+        if producto is None:
+            return Response(
+                {"error": "Producto no encontrado."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        historial = producto.get("historial_ajustes", [])
+
+        return Response({
+            "producto_id": producto_id,
+            "stock_fisico": producto["stock_fisico"],
+            "stock_reservado": producto.get("stock_reservado", 0),
+            "total": len(historial),
+            "historial": list(reversed(historial))
+        })
+
+    def post(self, request, producto_id):
+        administrador = verificar_admin(request)
+
+        serializer = AjusteInventarioSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        datos = serializer.validated_data
+
+        actualizado = repository.ajustar_inventario(
+            producto_id=producto_id,
+            stock_nuevo=datos["stock_fisico"],
+            motivo=datos["motivo"],
+            administrador=administrador
+        )
+
+        if actualizado is None:
+            producto = repository.obtener_producto(
+                producto_id,
+                solo_activos=False
+            )
+
+            if producto is None:
+                return Response(
+                    {"error": "Producto no encontrado."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            return Response(
+                {
+                    "error": "El ajuste no cumple las condiciones del inventario.",
+                    "stock_reservado": producto.get("stock_reservado", 0)
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        return Response(
+            {
+                "mensaje": "Ajuste de inventario registrado correctamente.",
+                "stock_fisico": actualizado["stock_fisico"],
+                "stock_reservado": actualizado["stock_reservado"],
+                "ajuste": actualizado["historial_ajustes"][-1]
+            },
+            status=status.HTTP_201_CREATED
+        )

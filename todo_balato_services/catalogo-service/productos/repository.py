@@ -249,3 +249,61 @@ def actualizar_categoria(categoria_id, datos):
         )
 
     return categoria
+
+def ajustar_inventario(producto_id, stock_nuevo, motivo, administrador):
+    ahora = datetime.now(timezone.utc)
+
+    ajuste = {
+        "ajuste_id": f"ajuste_{uuid4().hex}",
+        "producto_id": producto_id,
+        "stock_anterior": "$stock_fisico",
+        "stock_nuevo": stock_nuevo,
+        "motivo": {"$literal": motivo},
+        "administrador_id": administrador["id"],
+        "administrador_nombre": {
+            "$literal": (
+                f"{administrador['nombre']} "
+                f"{administrador['apellido']}"
+            ).strip()
+        },
+        "administrador_correo": {
+            "$literal": administrador["correo"]
+        },
+        "fecha": ahora,
+    }
+
+    with errores_mongo():
+        producto = get_productos().find_one_and_update(
+            {
+                "_id": producto_id,
+                "stock_reservado": {"$lte": stock_nuevo},
+            },
+            [
+                {
+                    "$set": {
+                        "historial_ajustes": {
+                            "$concatArrays": [
+                                {
+                                    "$ifNull": [
+                                        "$historial_ajustes",
+                                        []
+                                    ]
+                                },
+                                [ajuste]
+                            ]
+                        },
+                        "stock_fisico": stock_nuevo,
+                        "actualizado_en": ahora,
+                        "version": {
+                            "$add": [
+                                {"$ifNull": ["$version", 0]},
+                                1
+                            ]
+                        },
+                    }
+                }
+            ],
+            return_document=ReturnDocument.AFTER,
+        )
+
+    return producto

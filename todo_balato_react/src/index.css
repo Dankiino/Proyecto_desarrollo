@@ -1394,3 +1394,88 @@ button { font-family: inherit; cursor: pointer; }
         padding: 15px;
     }
 }
+
+
+
+/* =====================================
+   ADMINISTRACIÓN - AJUSTES DE INVENTARIO
+   ===================================== */
+
+.admin-inventario {
+    margin: 30px 0;
+    padding: 25px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.admin-inventario h2 {
+    margin-bottom: 18px;
+    color: #222222;
+}
+
+.admin-inventario h3 {
+    margin: 20px 0 15px;
+    color: #333333;
+}
+
+.admin-inventario p {
+    margin: 8px 0;
+}
+
+.admin-inventario .admin-form {
+    margin: 24px 0;
+}
+
+.admin-historial-contenedor {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+.admin-historial-tabla {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: left;
+}
+
+.admin-historial-tabla thead {
+    background: #facc15;
+    color: #222222;
+}
+
+.admin-historial-tabla th {
+    padding: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-historial-tabla td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+}
+
+.admin-historial-tabla tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.admin-historial-tabla tbody tr:hover {
+    background: #fef9c3;
+}
+
+.admin-historial-tabla tbody tr:last-child td {
+    border-bottom: none;
+}
+
+@media (max-width: 768px) {
+    .admin-inventario {
+        padding: 15px;
+    }
+}

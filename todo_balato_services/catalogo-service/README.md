@@ -169,3 +169,145 @@ listas vacías.
 1. Confirma que `comercio-service` no tenga `pymongo` ni variables/conexiones de MongoDB y que `catalogo-service` sea el único servicio con acceso a MongoDB.
 2. Inicia `catalogo-service` en `127.0.0.1:8002` y `comercio-service` en `127.0.0.1:8001` con `CATALOGO_API_URL=http://localhost:8002/api`.
 3. Prueba `POST /api/carrito/calcular` (y `POST /api/checkout` cuando aplique) en `comercio-service` con un producto existente, uno inexistente (`200` con `problema: "no_existe"`) y con `catalogo-service` detenido (`503`), validando que la comunicación ocurre vía HTTP y que los errores se reportan de forma explícita sin acceso directo de Comercio a MongoDB.
+
+## Ajustes manuales de inventario
+
+El panel administrativo permite modificar el stock físico de un
+producto y consultar el historial de ajustes realizados.
+
+### Autenticación y permisos
+
+Las operaciones requieren un token Bearer válido de Gestión.
+
+Solo las cuentas con rol `ADMIN` y estado `ACTIVO` pueden realizar
+ajustes o consultar el historial.
+
+Los clientes, administradores bloqueados y usuarios sin una sesión
+válida no tienen acceso a estas operaciones, incluso si realizan
+solicitudes directamente al servicio de Catálogo.
+
+La conexión con Gestión utiliza la variable `GESTION_API_URL`,
+cuyo valor local predeterminado es `http://127.0.0.1:8000/api`.
+
+### Registrar un ajuste de inventario
+
+`POST /api/admin/productos/<producto_id>/ajustes`
+
+Cabeceras:
+
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Ejemplo de solicitud:
+
+```json
+{
+  "stock_fisico": 70,
+  "motivo": "Corrección por conteo físico"
+}
+```
+
+Reglas de validación:
+
+- El stock físico debe ser un número entero mayor o igual a cero.
+- El valor máximo permitido es 2147483647.
+- El stock físico no puede ser inferior al stock reservado.
+- El motivo es obligatorio y admite hasta 500 caracteres.
+- No se permite modificar el stock reservado mediante esta operación.
+- La identidad del administrador se obtiene desde Gestión.
+- El cliente no puede proporcionar ni modificar los datos de auditoría.
+
+El stock físico y su historial se actualizan mediante una misma
+operación atómica sobre el documento del producto en MongoDB.
+
+### Consultar el historial de ajustes
+
+`GET /api/admin/productos/<producto_id>/ajustes`
+
+Devuelve el stock físico actual, el stock reservado, la cantidad
+total de ajustes y el historial ordenado desde el registro más
+reciente al más antiguo.
+
+Cada ajuste almacena los siguientes campos:
+
+| Campo | Descripción |
+|---|---|
+| ajuste_id | Identificador único del ajuste |
+| producto_id | Identificador del producto |
+| stock_anterior | Stock físico antes del ajuste |
+| stock_nuevo | Stock físico después del ajuste |
+| motivo | Justificación del cambio |
+| administrador_id | Identificador del administrador |
+| administrador_nombre | Nombre y apellido del administrador |
+| administrador_correo | Correo del administrador |
+| fecha | Fecha y hora del ajuste en UTC |
+
+El historial se almacena en el campo `historial_ajustes` del
+documento del producto en MongoDB.
+
+### Códigos de respuesta
+
+| Código | Descripción |
+|---|---|
+| 200 | Historial consultado correctamente |
+| 201 | Ajuste registrado correctamente |
+| 400 | Datos de solicitud inválidos |
+| 401 / 403 | Sesión inválida o acceso no autorizado |
+| 404 | Producto inexistente |
+| 409 | Ajuste incompatible con las condiciones del inventario |
+| 503 | Servicio de Gestión o MongoDB no disponible |
+
+### Protección de la edición general
+
+El endpoint `PATCH /api/admin/productos/<producto_id>` no permite
+modificar los campos `stock_fisico`, `stock_reservado` ni
+`historial_ajustes`.
+
+El stock físico inicial se establece durante la creación del
+producto. Los cambios posteriores deben realizarse mediante
+el endpoint específico de ajustes de inventario.
+
+### Uso desde el panel administrativo de React
+
+1. Iniciar sesión con una cuenta ADMIN activa.
+2. Ingresar a la sección de productos.
+3. Seleccionar el botón "Ajustar inventario".
+4. Revisar el stock físico, reservado y disponible.
+5. Ingresar el nuevo stock físico y el motivo del cambio.
+6. Guardar el ajuste.
+7. Consultar el historial mostrado en el mismo panel.
+
+### Pruebas automatizadas
+
+Desde el directorio `catalogo-service`, ejecutar:
+
+```bash
+python manage.py test productos -v 2
+```
+
+Se incorporaron 14 pruebas automatizadas de inventario que cubren:
+
+- Validación de cantidades y motivos.
+- Protección de campos de auditoría.
+- Permisos de acceso.
+- Ajustes válidos.
+- Conflictos con unidades reservadas.
+- Consulta y orden del historial.
+- Protección de la edición general.
+- Estructura de la actualización atómica en MongoDB.
+
+Resultado de la suite completa: 27 pruebas aprobadas.
+
+### Dependencias y validaciones pendientes
+
+La implementación reutiliza la conexión de Catálogo con MongoDB
+(DEA-31) y la validación de administradores de DEA-33.
+
+El almacenamiento del historial dentro del documento del producto
+debe revisarse con las validaciones e índices definidos en DEA-32.
+
+Las pruebas automatizadas utilizan objetos simulados. Queda
+pendiente la validación formal de integración con MongoDB y la
+coordinación con las operaciones de reserva de Comercio (DEA-46).

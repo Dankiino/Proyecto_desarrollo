@@ -12,6 +12,7 @@ from .views import (
     AdminCategoriasView,
     AdminProductoDetalleView,
     AdminCategoriaDetalleView,
+    AdminAjustesInventarioView,
 )
 
 urlpatterns = [
@@ -39,4 +40,8 @@ urlpatterns = [
         "admin/categorias/<str:categoria_id>",
         AdminCategoriaDetalleView.as_view(),
     ),
+    path(
+    "admin/productos/<str:producto_id>/ajustes",
+    AdminAjustesInventarioView.as_view()
+),
 ]

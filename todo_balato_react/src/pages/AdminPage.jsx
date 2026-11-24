@@ -10,6 +10,8 @@ import {
     editarCategoriaAdmin,
     listarMensajesContacto,
     obtenerMensajeContacto,
+    obtenerHistorialInventario,
+    registrarAjusteInventario,
 } from "../services/adminApi";
 
 const productoVacio = {
@@ -49,6 +51,12 @@ export default function AdminPage() {
     const [mensajeSeleccionado, setMensajeSeleccionado] = useState(null);
     const [cargandoContacto, setCargandoContacto] = useState(false);
     const [errorContacto, setErrorContacto] = useState("");
+    const [productoInventario, setProductoInventario] = useState(null);
+    const [nuevoStock, setNuevoStock] = useState("");
+    const [motivoAjuste, setMotivoAjuste] = useState("");
+    const [historialInventario, setHistorialInventario] = useState([]);
+    const [cargandoInventario, setCargandoInventario] = useState(false);
+    const [errorInventario, setErrorInventario] = useState("");
 
 
     const token = sesion?.tokens.access;
@@ -158,9 +166,11 @@ export default function AdminPage() {
         }
 
         if (
-            producto.stock_fisico === "" ||
-            !Number.isInteger(Number(producto.stock_fisico)) ||
-            Number(producto.stock_fisico) < 0
+            !editando && (
+                producto.stock_fisico === "" ||
+                !Number.isInteger(Number(producto.stock_fisico)) ||
+                Number(producto.stock_fisico) < 0
+            )
         ) {
             setError("El stock debe ser un entero no negativo.");
             return;
@@ -189,7 +199,9 @@ export default function AdminPage() {
                 nombre: producto.nombre.trim(),
                 descripcion: producto.descripcion.trim(),
                 precio: Number(producto.precio),
-                stock_fisico: Number(producto.stock_fisico),
+                ...(!editando ? {
+                    stock_fisico: Number(producto.stock_fisico)
+                } : {}),
                 categoria_id: producto.categoria_id,
                 imagenes: producto.imagenes.map((imagen) => ({
                     url: imagen.url.trim(),
@@ -297,6 +309,112 @@ export default function AdminPage() {
     };
 
 
+    const guardarAjusteInventario = async (e) => {
+        e.preventDefault();
+        limpiarAvisos();
+        setErrorInventario("");
+
+        if (!productoInventario || cargandoInventario) return;
+
+        const cantidad = Number(nuevoStock);
+
+        if (
+            nuevoStock.trim() === "" ||
+            !Number.isInteger(cantidad) ||
+            cantidad < 0 ||
+            cantidad > 2147483647
+        ) {
+            setErrorInventario("Ingresa una cantidad entera válida.");
+            return;
+        }
+
+        if (cantidad < productoInventario.stock_reservado) {
+            setErrorInventario(
+                "El stock físico no puede ser menor al stock reservado."
+            );
+            return;
+        }
+
+        if (!motivoAjuste.trim() || motivoAjuste.trim().length > 500) {
+            setErrorInventario(
+                "Ingresa un motivo válido de hasta 500 caracteres."
+            );
+            return;
+        }
+
+        setCargandoInventario(true);
+
+        try {
+            const resultado = await registrarAjusteInventario(
+                token,
+                productoInventario.identificador,
+                {
+                    stock_fisico: cantidad,
+                    motivo: motivoAjuste.trim(),
+                }
+            );
+
+            setProductoInventario((anterior) => ({
+                ...anterior,
+                stock_fisico: resultado.stock_fisico,
+                stock_reservado: resultado.stock_reservado,
+            }));
+
+            setHistorialInventario((anterior) => [
+                resultado.ajuste,
+                ...anterior,
+            ]);
+
+            setNuevoStock(String(resultado.stock_fisico));
+            setMotivoAjuste("");
+            setMensaje("Ajuste de inventario registrado correctamente.");
+
+            try {
+                await cargarDatos(token);
+            } catch {
+                setErrorInventario(
+                    "El ajuste se guardó, pero no se pudo actualizar el listado."
+                );
+            }
+
+        } catch (e) {
+            setErrorInventario(e.message);
+        } finally {
+            setCargandoInventario(false);
+        }
+    };
+
+    const abrirInventario = async (p) => {
+        limpiarAvisos();
+        setErrorInventario("");
+        setHistorialInventario([]);
+        setProductoInventario(p);
+        setNuevoStock("");
+        setMotivoAjuste("");
+        setCargandoInventario(true);
+
+        try {
+            const datos = await obtenerHistorialInventario(
+                token,
+                p.identificador
+            );
+
+            setProductoInventario({
+                ...p,
+                stock_fisico: datos.stock_fisico,
+                stock_reservado: datos.stock_reservado,
+            });
+
+            setNuevoStock(String(datos.stock_fisico));
+            setHistorialInventario(datos.historial || []);
+
+        } catch (e) {
+            setErrorInventario(e.message);
+        } finally {
+            setCargandoInventario(false);
+        }
+    };
+
 
     const iniciarEdicionProducto = (p) => {
         limpiarAvisos();
@@ -334,8 +452,17 @@ export default function AdminPage() {
         });
     };
 
+    const cerrarInventario = () => {
+    setProductoInventario(null);
+    setNuevoStock("");
+    setMotivoAjuste("");
+    setHistorialInventario([]);
+    setErrorInventario("");
+    };
 
     const cambiarSeccion = (seccion) => {
+        if (cargandoInventario) return;
+        cerrarInventario();
         limpiarAvisos();
         setTipo(seccion);
         setEditando(null);
@@ -396,7 +523,9 @@ export default function AdminPage() {
                 </div>
                 <button
                     type="button"
+                    disabled={cargandoInventario}
                     onClick={() => {
+                        cerrarInventario();
                         setSesion(null);
                         limpiarAvisos();
                     }}
@@ -441,18 +570,22 @@ export default function AdminPage() {
                     <h2>{editando ? "Editar producto" : "Nuevo producto"}</h2>
                     <form className="admin-form" onSubmit={guardarProducto}>
 
-                        <label>
-                            Nombre
-                            <input
-                                required
-                                maxLength={150}
-                                value={producto.nombre}
-                                onChange={(e) => setProducto({
-                                    ...producto,
-                                    nombre: e.target.value,
-                                })}
-                            />
-                        </label>
+                        {!editando && (
+                            <label>
+                                Stock físico inicial
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    required
+                                    value={producto.stock_fisico}
+                                    onChange={(e) => setProducto({
+                                        ...producto,
+                                        stock_fisico: e.target.value,
+                                    })}
+                                />
+                            </label>
+                        )}
 
                         <label>
                             Descripción
@@ -604,6 +737,133 @@ export default function AdminPage() {
                         )}
                     </form>
 
+                    {productoInventario && (
+                        <section className="admin-inventario">
+                            <h2>Ajuste de inventario</h2>
+
+                            <h3>{productoInventario.nombre}</h3>
+
+                            <p>
+                                Stock físico actual:{" "}
+                                <strong>{productoInventario.stock_fisico}</strong>
+                            </p>
+
+                            <p>
+                                Stock reservado:{" "}
+                                <strong>{productoInventario.stock_reservado ?? 0}</strong>
+                            </p>
+
+                            <p>
+                                Stock disponible:{" "}
+                                <strong>
+                                    {Math.max(
+                                        productoInventario.stock_fisico -
+                                        (productoInventario.stock_reservado ?? 0),
+                                        0
+                                    )}
+                                </strong>
+                            </p>
+
+                            {errorInventario && (
+                                <p role="alert" className="admin-error">
+                                    {errorInventario}
+                                </p>
+                            )}
+
+                            <form
+                                className="admin-form"
+                                onSubmit={guardarAjusteInventario}
+                            >
+                                <label>
+                                    Nuevo stock físico
+                                    <input
+                                        type="number"
+                                        min={productoInventario.stock_reservado ?? 0}
+                                        max="2147483647"
+                                        step="1"
+                                        required
+                                        disabled={cargandoInventario}
+                                        value={nuevoStock}
+                                        onChange={(e) => setNuevoStock(e.target.value)}
+                                    />
+                                </label>
+
+                                <label>
+                                    Motivo del ajuste
+                                    <textarea
+                                        required
+                                        maxLength={500}
+                                        disabled={cargandoInventario}
+                                        value={motivoAjuste}
+                                        placeholder="Ej: Corrección por conteo físico"
+                                        onChange={(e) => setMotivoAjuste(e.target.value)}
+                                    />
+                                </label>
+
+                                <button
+                                    type="submit"
+                                    disabled={cargandoInventario || nuevoStock === ""}
+                                >
+                                    {cargandoInventario
+                                        ? "Procesando..."
+                                        : "Registrar ajuste"}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={cargandoInventario}
+                                    onClick={cerrarInventario}
+                                >
+                                    Cerrar inventario
+                                </button>
+                            </form>
+                            <h3>Historial de ajustes</h3>
+
+                            {cargandoInventario && (
+                                <p>Consultando inventario...</p>
+                            )}
+
+                            {!cargandoInventario &&
+                                !errorInventario &&
+                                historialInventario.length === 0 && (
+                                    <p>No hay ajustes registrados para este producto.</p>
+                                )}
+
+                            {historialInventario.length > 0 && (
+                                <div className="admin-historial-contenedor">
+                                    <table className="admin-historial-tabla">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Stock anterior</th>
+                                                <th>Stock nuevo</th>
+                                                <th>Motivo</th>
+                                                <th>Administrador</th>
+                                                <th>Correo</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {historialInventario.map((ajuste) => (
+                                                <tr key={ajuste.ajuste_id}>
+                                                    <td>
+                                                        {new Date(ajuste.fecha)
+                                                            .toLocaleString("es-CL")}
+                                                    </td>
+                                                    <td>{ajuste.stock_anterior}</td>
+                                                    <td>{ajuste.stock_nuevo}</td>
+                                                    <td>{ajuste.motivo}</td>
+                                                    <td>{ajuste.administrador_nombre}</td>
+                                                    <td>{ajuste.administrador_correo}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </section>
+                    )}
+
                     <div className="admin-seccion-titulo">
                         <div>
                             <h2>Inventario de productos</h2>
@@ -674,6 +934,15 @@ export default function AdminPage() {
                                         onClick={() => iniciarEdicionProducto(p)}
                                     >
                                         Editar
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="admin-btn-editar"
+                                        disabled={cargando || cargandoInventario}
+                                        onClick={() => abrirInventario(p)}
+                                    >
+                                        Ajustar inventario
                                     </button>
 
                                     {p.activo ? (

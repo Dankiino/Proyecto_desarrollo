@@ -71,3 +71,32 @@ class CategoriaSerializer(serializers.Serializer):
     )
     orden = serializers.IntegerField(min_value=0)
     activa = serializers.BooleanField(required=False)
+
+
+class AjusteInventarioSerializer(serializers.Serializer):
+    stock_fisico = serializers.IntegerField(
+        min_value=0,
+        max_value=2147483647
+    )
+
+    motivo = serializers.CharField(
+        min_length=1,
+        max_length=500,
+        allow_blank=False,
+        trim_whitespace=True
+    )
+
+    def validate(self, attrs):
+        campos_permitidos = {"stock_fisico", "motivo"}
+
+        if set(self.initial_data.keys()) - campos_permitidos:
+            raise serializers.ValidationError(
+                "Solo se permite enviar el stock físico y el motivo."
+            )
+
+        if type(self.initial_data.get("stock_fisico")) is not int:
+            raise serializers.ValidationError({
+                "stock_fisico": "Debe ser un número entero."
+            })
+
+        return attrs

@@ -46,6 +46,7 @@ export async function solicitudAdmin(
         throw new Error(
             detalle ||
             resultado?.error?.mensaje ||
+            (typeof resultado?.error === "string" ? resultado.error : "") ||
             resultado?.detail ||
             "No se pudo completar la operación."
         );
@@ -134,7 +135,7 @@ export const editarCategoriaAdmin = (token, id, datos) =>
 
 
 /* =====================================
-   MENSAJES DE CONTACTO - GESTIÓN
+MENSAJES DE CONTACTO - GESTIÓN
    ===================================== */
 
 async function solicitudContacto(ruta, token) {
@@ -188,4 +189,25 @@ export const obtenerMensajeContacto = (token, id) =>
     solicitudContacto(
         `/admin/contacto/${encodeURIComponent(id)}/`,
         token
+    );
+
+
+    /* =====================================
+   AJUSTES DE INVENTARIO - CATÁLOGO
+   ===================================== */
+
+export const obtenerHistorialInventario = (token, id) =>
+    solicitudAdmin(
+        `/admin/productos/${encodeURIComponent(id)}/ajustes`,
+        { token }
+    );
+
+export const registrarAjusteInventario = (token, id, datos) =>
+    solicitudAdmin(
+        `/admin/productos/${encodeURIComponent(id)}/ajustes`,
+        {
+            method: "POST",
+            token,
+            datos,
+        }
     );

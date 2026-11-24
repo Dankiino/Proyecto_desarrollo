@@ -131,6 +131,7 @@ class CatalogoAPITests(APISimpleTestCase):
             pagina=1,
             tamano=50,
             orden="recientes",
+            buscar="",
         )
 
     @patch("productos.views.repository.listar_categorias")
@@ -207,3 +208,352 @@ class ActiveProductRepositoryTests(APISimpleTestCase):
         get_productos.return_value.find_one.assert_called_once_with(
             {"_id": "prod_0001", "activo": True}
         )
+class AjusteInventarioSerializerTests(APISimpleTestCase):
+
+    def validar(self, datos):
+        from productos.serializers import AjusteInventarioSerializer
+
+        serializer = AjusteInventarioSerializer(data=datos)
+        return serializer.is_valid()
+
+    def test_stock_entero_positivo(self):
+        self.assertTrue(self.validar({
+            "stock_fisico": 70,
+            "motivo": "Conteo físico",
+        }))
+
+    def test_stock_cero(self):
+        self.assertTrue(self.validar({
+            "stock_fisico": 0,
+            "motivo": "Sin existencias",
+        }))
+
+    def test_cantidades_invalidas(self):
+        for cantidad in [-1, 2.5, "10", True, None, 2147483648]:
+            with self.subTest(cantidad=cantidad):
+                self.assertFalse(self.validar({
+                    "stock_fisico": cantidad,
+                    "motivo": "Prueba",
+                }))
+
+    def test_motivo_vacio(self):
+        for motivo in ["", "   "]:
+            with self.subTest(motivo=motivo):
+                self.assertFalse(self.validar({
+                    "stock_fisico": 10,
+                    "motivo": motivo,
+                }))
+
+    def test_motivo_demasiado_largo(self):
+        self.assertFalse(self.validar({
+            "stock_fisico": 10,
+            "motivo": "a" * 501,
+        }))
+
+    def test_campos_protegidos(self):
+        for campo in [
+            "stock_reservado",
+            "historial_ajustes",
+            "administrador_id",
+            "administrador_nombre",
+            "administrador_correo",
+            "fecha",
+        ]:
+            with self.subTest(campo=campo):
+                self.assertFalse(self.validar({
+                    "stock_fisico": 10,
+                    "motivo": "Prueba",
+                    campo: "valor no autorizado",
+                }))
+
+class AjusteInventarioPermisosTests(APISimpleTestCase):
+
+    ruta = "/api/admin/productos/prod_0001/ajustes"
+
+    @patch("productos.repository.get_productos")
+    def test_sin_token(self, get_productos):
+        respuesta = self.client.post(
+            self.ruta,
+            {"stock_fisico": 20, "motivo": "Prueba"},
+            format="json",
+        )
+
+        self.assertIn(respuesta.status_code, [401, 403])
+        get_productos.assert_not_called()
+
+    @patch("productos.repository.get_productos")
+    @patch("productos.admin_auth.json.load")
+    @patch("productos.admin_auth.urllib.request.urlopen")
+    def test_cuentas_no_autorizadas(
+        self, urlopen, cargar_json, get_productos
+    ):
+        for rol, estado in [
+            ("CLIENTE", "ACTIVO"),
+            ("ADMIN", "BLOQUEADO"),
+            ("ADMIN", "PENDIENTE"),
+        ]:
+            with self.subTest(rol=rol, estado=estado):
+                cargar_json.return_value = {
+                    "id": 1,
+                    "rol": rol,
+                    "estado": estado,
+                }
+
+                for metodo in ["get", "post"]:
+                    respuesta = getattr(self.client, metodo)(
+                        self.ruta,
+                        {"stock_fisico": 20, "motivo": "Prueba"},
+                        format="json",
+                        HTTP_AUTHORIZATION="Bearer token-prueba",
+                    )
+
+                    self.assertEqual(respuesta.status_code, 403)
+
+        get_productos.assert_not_called()
+
+class AjusteInventarioOperacionTests(APISimpleTestCase):
+
+    ruta = "/api/admin/productos/prod_0001/ajustes"
+
+    administrador = {
+        "id": 1,
+        "nombre": "Admin",
+        "apellido": "Prueba",
+        "correo": "admin@example.com",
+        "rol": "ADMIN",
+        "estado": "ACTIVO",
+    }
+
+    @patch("productos.views.repository.ajustar_inventario")
+    @patch("productos.views.verificar_admin")
+    def test_ajuste_valido(self, verificar_admin, ajustar):
+        verificar_admin.return_value = self.administrador
+
+        ajustar.return_value = {
+            "stock_fisico": 70,
+            "stock_reservado": 5,
+            "historial_ajustes": [{
+                "ajuste_id": "ajuste_001",
+                "producto_id": "prod_0001",
+                "stock_anterior": 50,
+                "stock_nuevo": 70,
+                "motivo": "Conteo físico",
+                "administrador_id": 1,
+                "administrador_nombre": "Admin Prueba",
+                "administrador_correo": "admin@example.com",
+                "fecha": datetime(2026, 11, 24, 18, 0),
+            }],
+        }
+
+        respuesta = self.client.post(
+            self.ruta,
+            {
+                "stock_fisico": 70,
+                "motivo": "Conteo físico",
+            },
+            format="json",
+        )
+
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertEqual(respuesta.json()["stock_fisico"], 70)
+        self.assertEqual(
+            respuesta.json()["ajuste"]["administrador_nombre"],
+            "Admin Prueba",
+        )
+
+        ajustar.assert_called_once_with(
+            producto_id="prod_0001",
+            stock_nuevo=70,
+            motivo="Conteo físico",
+            administrador=self.administrador,
+        )
+
+    @patch("productos.views.repository.obtener_producto")
+    @patch("productos.views.repository.ajustar_inventario")
+    @patch("productos.views.verificar_admin")
+    def test_stock_inferior_al_reservado(
+        self, verificar_admin, ajustar, obtener
+    ):
+        verificar_admin.return_value = self.administrador
+        ajustar.return_value = None
+
+        obtener.return_value = {
+            "_id": "prod_0001",
+            "stock_fisico": 50,
+            "stock_reservado": 10,
+        }
+
+        respuesta = self.client.post(
+            self.ruta,
+            {
+                "stock_fisico": 5,
+                "motivo": "Corrección de inventario",
+            },
+            format="json",
+        )
+
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertEqual(
+            respuesta.json()["stock_reservado"], 10
+        )
+class AjusteInventarioHistorialTests(APISimpleTestCase):
+
+    ruta = "/api/admin/productos/prod_0001/ajustes"
+
+    @patch("productos.views.repository.obtener_producto")
+    @patch("productos.views.verificar_admin")
+    def test_consultar_historial(self, verificar_admin, obtener):
+        verificar_admin.return_value = {
+            "id": 1,
+            "rol": "ADMIN",
+            "estado": "ACTIVO",
+        }
+
+        obtener.return_value = {
+            "_id": "prod_0001",
+            "stock_fisico": 70,
+            "stock_reservado": 5,
+            "historial_ajustes": [
+                {
+                    "ajuste_id": "ajuste_001",
+                    "stock_anterior": 40,
+                    "stock_nuevo": 50,
+                },
+                {
+                    "ajuste_id": "ajuste_002",
+                    "stock_anterior": 50,
+                    "stock_nuevo": 70,
+                },
+            ],
+        }
+
+        respuesta = self.client.get(self.ruta)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["total"], 2)
+        self.assertEqual(respuesta.json()["stock_fisico"], 70)
+        self.assertEqual(
+            respuesta.json()["historial"][0]["ajuste_id"],
+            "ajuste_002",
+        )
+
+    @patch("productos.views.repository.obtener_producto")
+    @patch("productos.views.verificar_admin")
+    def test_historial_vacio(self, verificar_admin, obtener):
+        verificar_admin.return_value = {
+            "rol": "ADMIN",
+            "estado": "ACTIVO",
+        }
+
+        obtener.return_value = {
+            "_id": "prod_0001",
+            "stock_fisico": 50,
+            "stock_reservado": 0,
+        }
+
+        respuesta = self.client.get(self.ruta)
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["total"], 0)
+        self.assertEqual(respuesta.json()["historial"], [])
+
+class InventarioCamposProtegidosTests(APISimpleTestCase):
+
+    ruta = "/api/admin/productos/prod_0001"
+
+    @patch("productos.views.repository.actualizar_producto")
+    @patch("productos.views.repository.obtener_producto")
+    @patch("productos.views.verificar_admin")
+    def test_edicion_general_rechaza_campos_protegidos(
+        self, verificar_admin, obtener, actualizar
+    ):
+        verificar_admin.return_value = {
+            "id": 1,
+            "rol": "ADMIN",
+            "estado": "ACTIVO",
+        }
+
+        obtener.return_value = {
+            "_id": "prod_0001",
+            "nombre": "Producto de prueba",
+            "descripcion": "Descripción de prueba",
+            "precio": 5000,
+            "stock_fisico": 50,
+            "stock_reservado": 10,
+            "categoria_id": "cocina",
+            "imagenes": [],
+            "activo": True,
+        }
+
+        campos = {
+            "stock_fisico": 100,
+            "stock_reservado": 0,
+            "historial_ajustes": [],
+        }
+
+        for campo, valor in campos.items():
+            with self.subTest(campo=campo):
+                respuesta = self.client.patch(
+                    self.ruta,
+                    {campo: valor},
+                    format="json",
+                )
+
+                self.assertEqual(respuesta.status_code, 400)
+
+        actualizar.assert_not_called()
+
+class AjusteInventarioRepositoryTests(APISimpleTestCase):
+
+    @patch("productos.repository.get_productos")
+    def test_actualizacion_atomica(self, get_productos):
+        coleccion = get_productos.return_value
+
+        administrador = {
+            "id": 1,
+            "nombre": "Admin",
+            "apellido": "Prueba",
+            "correo": "admin@example.com",
+        }
+
+        repository.ajustar_inventario(
+            producto_id="prod_0001",
+            stock_nuevo=70,
+            motivo="Conteo físico",
+            administrador=administrador,
+        )
+
+        coleccion.find_one_and_update.assert_called_once()
+
+        argumentos = coleccion.find_one_and_update.call_args.args
+
+        filtro = argumentos[0]
+        pipeline = argumentos[1]
+
+        self.assertEqual(filtro["_id"], "prod_0001")
+        self.assertEqual(
+            filtro["stock_reservado"],
+            {"$lte": 70},
+        )
+
+        cambios = pipeline[0]["$set"]
+
+        self.assertEqual(cambios["stock_fisico"], 70)
+        self.assertNotIn("stock_reservado", cambios)
+
+        ajuste = cambios["historial_ajustes"][
+            "$concatArrays"
+        ][1][0]
+
+        self.assertEqual(ajuste["stock_anterior"], "$stock_fisico")
+        self.assertEqual(ajuste["stock_nuevo"], 70)
+        self.assertEqual(ajuste["administrador_id"], 1)
+        self.assertEqual(
+            ajuste["administrador_nombre"],
+            {"$literal": "Admin Prueba"},
+        )
+        self.assertEqual(
+            ajuste["motivo"],
+            {"$literal": "Conteo físico"},
+        )
+        self.assertIn("fecha", ajuste)
