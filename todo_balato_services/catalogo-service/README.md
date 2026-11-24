@@ -346,4 +346,3 @@ el soporte para historial_ajustes.
 
 Queda pendiente la integracion con las operaciones de
 reserva, consolidacion y liberacion de DEA-46.
-
