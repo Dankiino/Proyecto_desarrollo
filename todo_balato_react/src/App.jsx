@@ -10,24 +10,57 @@ import QuienesSomos from "./pages/QuienesSomos";
 import ProductDetail from "./pages/ProductDetail";
 import {
   calcularCarrito,
+  combinarCarrito,
   crearOrden,
+  guardarCantidad,
   login,
   logout,
   miUsuario,
+  quitarDelCarrito,
   registro,
 } from "./services/django";
+
+const CLAVE_CARRITO_ANONIMO = "todo_balato_carrito_anonimo";
+
+function leerCarritoAnonimo() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_CARRITO_ANONIMO));
+    if (!Array.isArray(guardado)) return [];
+    return guardado
+      .filter(
+        (item) => typeof item?.id === "string" && Number.isInteger(item.cantidad) && item.cantidad > 0,
+      )
+      .map(({ id, cantidad }) => ({ id, cantidad }));
+  } catch {
+    return [];
+  }
+}
+
+const aCarritoReact = (items) =>
+  items.map((item) => ({ id: item.producto_id, cantidad: item.cantidad }));
 
 export default function App() {
   const [pagina, setPagina] = useState("inicio");
   const [productoId, setProductoId] = useState("");
   const [categoria, setCategoria] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [carrito, setCarrito] = useState([]); // [{ id, cantidad }]
+  const [carrito, setCarrito] = useState(leerCarritoAnonimo); // [{ id, cantidad }]
   const [sesion, setSesion] = useState(null);
   const [cotizacion, setCotizacion] = useState(null);
   const [errorCarrito, setErrorCarrito] = useState("");
   const [orden, setOrden] = useState(null);
   const llaveOrden = useRef(null);
+
+  useEffect(() => {
+    // Con sesión iniciada el carrito vive en Comercio, no en el navegador.
+    if (sesion) return;
+    try {
+      const anonimo = carrito.map(({ id, cantidad }) => ({ id, cantidad }));
+      localStorage.setItem(CLAVE_CARRITO_ANONIMO, JSON.stringify(anonimo));
+    } catch {
+      // Sin almacenamiento disponible: el carrito sigue funcionando en memoria.
+    }
+  }, [carrito, sesion]);
 
   useEffect(() => {
     if (carrito.length === 0) {
@@ -62,11 +95,28 @@ export default function App() {
     setPagina("catalogo");
   };
 
+  const guardarEnComercio = async (id, cantidad) => {
+    try {
+      const guardado = cantidad > 0
+        ? await guardarCantidad(id, cantidad, sesion.access)
+        : await quitarDelCarrito(id, sesion.access);
+      setCarrito(aCarritoReact(guardado.items));
+    } catch (error) {
+      setErrorCarrito(error.message);
+    }
+  };
+
+  const cantidadActual = (id) => carrito.find((i) => i.id === id)?.cantidad ?? 0;
+
   const agregar = (id, producto) => {
     setCotizacion(null);
     setErrorCarrito("");
     setOrden(null);
     llaveOrden.current = null;
+    if (sesion) {
+      guardarEnComercio(id, cantidadActual(id) + 1);
+      return;
+    }
     setCarrito((c) =>
       c.some((i) => i.id === id)
         ? c.map((i) => (
@@ -81,6 +131,10 @@ export default function App() {
   const cambiarCantidad = (id, delta) => {
     setCotizacion(null);
     setErrorCarrito("");
+    if (sesion) {
+      guardarEnComercio(id, Math.max(cantidadActual(id) + delta, 0));
+      return;
+    }
     setCarrito((c) =>
       c.map((i) => (i.id === id ? { ...i, cantidad: i.cantidad + delta } : i)).filter((i) => i.cantidad > 0)
     );
@@ -89,6 +143,10 @@ export default function App() {
   const quitar = (id) => {
     setCotizacion(null);
     setErrorCarrito("");
+    if (sesion) {
+      guardarEnComercio(id, 0);
+      return;
+    }
     setCarrito((c) => c.filter((i) => i.id !== id));
   };
 
@@ -99,13 +157,13 @@ export default function App() {
       ...producto,
       id: item.id,
       cantidad: item.cantidad,
-      nombre: calculada?.nombre || producto.nombre || "Producto",
-      precio: calculada?.precio_unitario ?? producto.precio ?? 0,
+      nombre: calculada ? calculada.nombre : (producto.nombre || "Producto"),
+      precio: calculada ? calculada.precio_unitario : producto.precio,
       subtotal: calculada?.subtotal,
       problema: calculada?.problema,
     };
   });
-  const total = cotizacion?.total ?? lineas.reduce((suma, linea) => suma + linea.precio * linea.cantidad, 0);
+  const total = cotizacion?.total ?? lineas.reduce((suma, linea) => suma + (linea.precio ?? 0) * linea.cantidad, 0);
   const cantidadCarrito = carrito.reduce((suma, i) => suma + i.cantidad, 0);
 
   const verProducto = (id) => {
@@ -117,6 +175,16 @@ export default function App() {
   const iniciarSesion = async (datos) => {
     const tokens = await login(datos);
     const usuario = await miUsuario(tokens.access);
+    const anonimo = carrito.map((item) => ({ producto_id: item.id, cantidad: item.cantidad }));
+    const guardado = await combinarCarrito(anonimo, tokens.access);
+    try {
+      localStorage.removeItem(CLAVE_CARRITO_ANONIMO);
+    } catch {
+      // Sin almacenamiento disponible: no hay nada que borrar.
+    }
+    setCotizacion(null);
+    setErrorCarrito("");
+    setCarrito(aCarritoReact(guardado.items));
     setSesion({ ...tokens, usuario });
     setPagina("carrito");
   };
@@ -128,6 +196,9 @@ export default function App() {
   const cerrarSesion = async () => {
     await logout(sesion.access, sesion.refresh);
     setSesion(null);
+    setCarrito([]);
+    setCotizacion(null);
+    setErrorCarrito("");
   };
 
   const confirmarOrden = async () => {
@@ -136,6 +207,8 @@ export default function App() {
     const respuesta = await crearOrden(items, cotizacion.total, sesion.access, llaveOrden.current);
     setOrden(respuesta.orden);
     llaveOrden.current = null;
+    // El pedido ya se creó: se vacía también el carrito guardado en Comercio.
+    await Promise.allSettled(carrito.map((item) => quitarDelCarrito(item.id, sesion.access)));
     setCarrito([]);
   };
 

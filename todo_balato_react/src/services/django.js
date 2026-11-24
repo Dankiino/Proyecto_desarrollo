@@ -24,7 +24,7 @@ async function obtener(url, mensajeError) {
   return resultado;
 }
 
-async function enviar(url, datos, token, idempotencyKey) {
+async function enviar(url, datos, token, idempotencyKey, metodo = "POST") {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
@@ -32,7 +32,7 @@ async function enviar(url, datos, token, idempotencyKey) {
   let respuesta;
   try {
     respuesta = await fetch(url, {
-      method: "POST",
+      method: metodo,
       headers,
       body: JSON.stringify(datos),
     });
@@ -89,6 +89,26 @@ export const crearOrden = (items, total, token, idempotencyKey) => enviar(
   idempotencyKey,
 );
 
+export const combinarCarrito = (items, token) => enviar(
+  `${comercioUrl}/carrito/combinar`,
+  { items },
+  token,
+);
+export const guardarCantidad = (id, cantidad, token) => enviar(
+  `${comercioUrl}/carrito/items/${encodeURIComponent(id)}`,
+  { cantidad },
+  token,
+  undefined,
+  "PUT",
+);
+export const quitarDelCarrito = (id, token) => enviar(
+  `${comercioUrl}/carrito/items/${encodeURIComponent(id)}`,
+  undefined,
+  token,
+  undefined,
+  "DELETE",
+);
+
 export const obtenerCategoriasCatalogo = () => obtener(
   `${catalogoUrl}/categorias`,
   "No se pudieron cargar las categorías del catálogo.",
@@ -103,3 +123,4 @@ export const obtenerProductoCatalogo = (productoId) => obtener(
   `${catalogoUrl}/productos/${encodeURIComponent(productoId)}`,
   "No se pudo cargar el producto.",
 );
+

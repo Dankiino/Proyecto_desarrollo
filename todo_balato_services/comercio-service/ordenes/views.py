@@ -39,7 +39,9 @@ def calcular_lineas(items):
 
         stock_disponible = producto.get("stock_disponible", 0)
         problema = None
-        if stock_disponible <= 0:
+        if str(producto.get("estado", "ACTIVO")).upper() != "ACTIVO":
+            problema = "inactivo"
+        elif stock_disponible <= 0:
             problema = "agotado"
         elif cantidad > stock_disponible:
             problema = "stock_insuficiente"
