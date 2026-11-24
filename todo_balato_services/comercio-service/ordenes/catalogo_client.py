@@ -32,7 +32,7 @@ def _resolver_stock_disponible(data):
 
 def obtener_producto(producto_id):
     base_url = settings.CATALOGO_API_URL.rstrip("/")
-    url = f"{base_url}/productos/{producto_id}/"
+    url = f"{base_url}/productos/{producto_id}"
 
     try:
         response = requests.get(url, timeout=5)

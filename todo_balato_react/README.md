@@ -13,8 +13,11 @@ copia anterior `todo-balato-integracion`.
   se guarda en Comercio. En ambos casos Comercio calcula precio y disponibilidad.
 - Comercio recibe el pedido autenticado y lo crea como pendiente de pago. Esta
   versión no procesa pagos ni pide datos de tarjeta.
-- Los productos son un fixture local con IDs compatibles con MongoDB. Catálogo
-  aún no está conectado.
+- Inicio, catálogo y detalle consultan el servicio público de Catálogo; React no
+  se conecta directamente a MongoDB ni usa el fixture local como fuente de
+  productos.
+- La disponibilidad se muestra en las tarjetas y los productos agotados no se
+  pueden agregar al carrito. Comercio vuelve a validar precio y stock.
 
 ## Enfoque inspirado en los tutoriales
 
@@ -38,6 +41,9 @@ no una plantilla Django.
 | Login | Gestión `POST /api/login` |
 | Consultar usuario | Gestión `GET /api/usuarios/me` |
 | Logout | Gestión `POST /api/logout` |
+| Listar categorías activas | Catálogo `GET /api/categorias` |
+| Listar productos activos | Catálogo `GET /api/productos?page=1&page_size=20` |
+| Detalle de producto activo | Catálogo `GET /api/productos/<producto_id>` |
 | Calcular carrito | Comercio `POST /api/carrito/calcular` |
 | Combinar carrito al iniciar sesión | Comercio `POST /api/carrito/combinar` |
 | Guardar o cambiar cantidad | Comercio `PUT /api/carrito/items/<producto_id>` |
@@ -85,10 +91,29 @@ en Comercio se vacía.
 está inactivo, está agotado o no tiene stock suficiente para la cantidad
 elegida, y mantiene bloqueado el botón de pago hasta corregirlo.
 
+### Contrato público del catálogo
+
+Las rutas de Catálogo son públicas y no requieren una cuenta. El listado acepta
+`page` (desde 1) y `page_size` (por defecto 20, máximo 50), además de `categoria`,
+`precio_min`, `precio_max`, `disponible=true` y `orden`. Un tamaño fuera del
+rango responde `400`.
+
+El listado responde con `count`, `page`, `page_size` y `results`. Cada producto
+incluye `id`, `nombre`, `imagen_principal` (objeto o `null`), `precio`, `moneda`,
+`disponible` y `categorias`. El detalle agrega `descripcion`, `imagenes`
+(incluido `texto_alternativo`), `stock_disponible` y `actualizado_en`.
+Un producto inactivo o inexistente responde `404`.
+
+Inicio y catálogo muestran carga, errores con opción de reintento y mensajes
+cuando no hay resultados. Las tarjetas muestran “Agotado” y deshabilitan la
+acción de agregar cuando `disponible` es `false`.
+
 ## Ejecutar en Windows
 
-Inicia Gestión en `127.0.0.1:8000` y Comercio en `127.0.0.1:8001`, cada uno con
-su `.env` local. Luego, desde CMD en esta carpeta:
+Inicia Catálogo en `127.0.0.1:8002`, Gestión en `127.0.0.1:8000` y Comercio
+en `127.0.0.1:8001`, cada uno con su `.env` local. Para cambiar la dirección
+del catálogo, configura `VITE_CATALOGO_API_URL` en el entorno de Vite (por
+ejemplo, `http://127.0.0.1:8002/api`). Luego, desde CMD en esta carpeta:
 
 ```cmd
 copy .env.example .env.local
@@ -100,6 +125,5 @@ Abre `http://localhost:5173`. No guardes credenciales Django en el frontend.
 
 ## Próximas tareas
 
-- Cambiar el fixture por el futuro endpoint del servicio Catálogo.
 - Persistir/renovar la sesión después de recargar.
 - Integrar el pago sandbox cuando el backend esté preparado.

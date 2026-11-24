@@ -7,7 +7,7 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import AuthPage from "./pages/AuthPage";
 import QuienesSomos from "./pages/QuienesSomos";
-import { productos } from "./data/productos";
+import ProductDetail from "./pages/ProductDetail";
 import {
   calcularCarrito,
   combinarCarrito,
@@ -26,9 +26,11 @@ function leerCarritoAnonimo() {
   try {
     const guardado = JSON.parse(localStorage.getItem(CLAVE_CARRITO_ANONIMO));
     if (!Array.isArray(guardado)) return [];
-    return guardado.filter(
-      (item) => typeof item?.id === "string" && Number.isInteger(item.cantidad) && item.cantidad > 0,
-    );
+    return guardado
+      .filter(
+        (item) => typeof item?.id === "string" && Number.isInteger(item.cantidad) && item.cantidad > 0,
+      )
+      .map(({ id, cantidad }) => ({ id, cantidad }));
   } catch {
     return [];
   }
@@ -39,6 +41,7 @@ const aCarritoReact = (items) =>
 
 export default function App() {
   const [pagina, setPagina] = useState("inicio");
+  const [productoId, setProductoId] = useState("");
   const [categoria, setCategoria] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [carrito, setCarrito] = useState(leerCarritoAnonimo); // [{ id, cantidad }]
@@ -52,7 +55,8 @@ export default function App() {
     // Con sesión iniciada el carrito vive en Comercio, no en el navegador.
     if (sesion) return;
     try {
-      localStorage.setItem(CLAVE_CARRITO_ANONIMO, JSON.stringify(carrito));
+      const anonimo = carrito.map(({ id, cantidad }) => ({ id, cantidad }));
+      localStorage.setItem(CLAVE_CARRITO_ANONIMO, JSON.stringify(anonimo));
     } catch {
       // Sin almacenamiento disponible: el carrito sigue funcionando en memoria.
     }
@@ -104,7 +108,7 @@ export default function App() {
 
   const cantidadActual = (id) => carrito.find((i) => i.id === id)?.cantidad ?? 0;
 
-  const agregar = (id) => {
+  const agregar = (id, producto) => {
     setCotizacion(null);
     setErrorCarrito("");
     setOrden(null);
@@ -115,8 +119,12 @@ export default function App() {
     }
     setCarrito((c) =>
       c.some((i) => i.id === id)
-        ? c.map((i) => (i.id === id ? { ...i, cantidad: i.cantidad + 1 } : i))
-        : [...c, { id, cantidad: 1 }]
+        ? c.map((i) => (
+          i.id === id
+            ? { ...i, cantidad: i.cantidad + 1, producto: producto || i.producto }
+            : i
+        ))
+        : [...c, { id, cantidad: 1, producto }]
     );
   };
 
@@ -143,20 +151,26 @@ export default function App() {
   };
 
   const lineas = carrito.map((item) => {
-    const producto = productos.find((p) => p.id === item.id);
+    const producto = item.producto || {};
     const calculada = cotizacion?.lineas?.find((linea) => linea.producto_id === item.id);
     return {
       ...producto,
       id: item.id,
       cantidad: item.cantidad,
-      nombre: calculada?.nombre || producto?.nombre,
-      precio: calculada?.precio_unitario ?? producto?.precio,
+      nombre: calculada ? calculada.nombre : (producto.nombre || "Producto"),
+      precio: calculada ? calculada.precio_unitario : producto.precio,
       subtotal: calculada?.subtotal,
       problema: calculada?.problema,
     };
   });
-  const total = cotizacion?.total ?? lineas.reduce((suma, linea) => suma + linea.precio * linea.cantidad, 0);
+  const total = cotizacion?.total ?? lineas.reduce((suma, linea) => suma + (linea.precio ?? 0) * linea.cantidad, 0);
   const cantidadCarrito = carrito.reduce((suma, i) => suma + i.cantidad, 0);
+
+  const verProducto = (id) => {
+    setProductoId(id);
+    setPagina("producto");
+    window.scrollTo(0, 0);
+  };
 
   const iniciarSesion = async (datos) => {
     const tokens = await login(datos);
@@ -209,10 +223,25 @@ export default function App() {
       />
 
       <main className="contenido">
-        {pagina === "inicio" && <Home onNavegar={navegar} onAgregar={agregar} />}
+        {pagina === "inicio" && (
+          <Home onNavegar={navegar} onAgregar={agregar} onVerProducto={verProducto} />
+        )}
         {pagina === "quienes-somos" && <QuienesSomos onNavegar={navegar} />}
         {pagina === "catalogo" && (
-          <Catalog key={categoria} categoriaInicial={categoria} busqueda={busqueda} onAgregar={agregar} />
+          <Catalog
+            key={categoria}
+            categoriaInicial={categoria}
+            busqueda={busqueda}
+            onAgregar={agregar}
+            onVerProducto={verProducto}
+          />
+        )}
+        {pagina === "producto" && (
+          <ProductDetail
+            productoId={productoId}
+            onVolver={() => navegar("catalogo")}
+            onAgregar={agregar}
+          />
         )}
         {pagina === "carrito" && (
           <CartPage

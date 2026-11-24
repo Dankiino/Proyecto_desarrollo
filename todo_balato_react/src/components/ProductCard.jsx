@@ -7,6 +7,7 @@ export default function ProductCard({
     imagen_principal = null,
     disponible = true,
     onAgregarCarrito = () => { },
+    onVerDetalle,
 }) {
     const precioFormateado = new Intl.NumberFormat("es-CL", {
         style: "currency",
@@ -44,11 +45,28 @@ export default function ProductCard({
                     {disponible ? "Disponible" : "Agotado"}
                 </p>
 
+                {onVerDetalle && (
+                    <button
+                        type="button"
+                        className="btn btn-secondary producto-detalle-boton"
+                        onClick={() => onVerDetalle(id)}
+                    >
+                        Ver detalle
+                    </button>
+                )}
+
                 <button
                     type="button"
                     className="producto-boton"
                     disabled={!disponible}
-                    onClick={() => onAgregarCarrito(id)}
+                    onClick={() => onAgregarCarrito(id, {
+                        id,
+                        nombre,
+                        precio,
+                        moneda,
+                        imagen_principal,
+                        disponible,
+                    })}
                 >
                     {disponible ? "Agregar al Carrito" : "Sin stock"}
                 </button>
