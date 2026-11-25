@@ -14,12 +14,11 @@ carrito, pagos) y **Catálogo** (productos, Mongo).
 |---|---|---|
 | **Gestión** (este repo) | PostgreSQL — `gestion_db` (Neon) | Usuarios, autenticación, roles, contenidos, temas, contacto |
 | Comercio | PostgreSQL — `comercio_db` (Neon, proyecto separado) | Carrito, órdenes, pagos |
-| Catálogo (pendiente) | MongoDB — `catalogo_db` (Atlas) | Productos y stock; el servicio Django independiente está pendiente |
+| Catálogo | MongoDB — `catalogo_db` (Atlas) | Productos y stock; servicio Django independiente en `catalogo-service` |
 
-Gestión y Comercio son servicios Django independientes, con sus respectivas
-bases de datos y credenciales. Catálogo aún no cuenta con un servicio Django
-independiente; sus datos están en MongoDB Atlas. La separación futura debe
-mantener la comunicación entre servicios vía API.
+Gestión, Comercio y Catálogo son servicios independientes, con bases de datos y
+credenciales propias. Catálogo accede a MongoDB Atlas; Gestión y Comercio se
+integran con los otros servicios mediante API.
 
 ## Stack
 
@@ -173,9 +172,44 @@ resumida de arriba.
 | POST | `/api/logout` | autenticado | Invalida (blacklist) el refresh token |
 | GET | `/api/usuarios/me` | autenticado | Datos del usuario autenticado |
 | GET | `/api/usuarios` | solo ADMIN activo | Lista todos los usuarios |
+| POST | `/api/usuarios` | solo ADMIN activo | Crea una cuenta activa; admite rol `CLIENTE` o `ADMIN` |
+| GET | `/api/usuarios/<uuid>` | solo ADMIN activo | Consulta una cuenta |
+| PATCH | `/api/usuarios/<uuid>` | solo ADMIN activo | Edita nombre, apellido, correo, rol y opcionalmente contraseña |
+| POST | `/api/usuarios/importar-csv` | solo ADMIN activo | Importa usuarios y devuelve informe por fila |
 | POST | `/api/usuarios/:id/bloquear` | solo ADMIN activo | Bloquea un usuario |
 | POST | `/api/usuarios/:id/desbloquear` | solo ADMIN activo | Reactiva un usuario |
 
+Las rutas de administración rechazan a visitantes, clientes y cuentas bloqueadas
+en Django, aunque se invoquen directamente sin usar la pantalla React. El
+registro público continúa creando únicamente cuentas `CLIENTE` en estado
+`PENDIENTE`. La gestión administrativa nunca devuelve contraseñas; las
+contraseñas nuevas se validan y almacenan usando el hash de Django. No se permite
+el autobloqueo ni bloquear o degradar al último administrador activo.
+
+### Importación de usuarios CSV
+
+Desde `/admin` → **Usuarios**, un administrador activo puede seleccionar un CSV
+de texto UTF-8 (se admite BOM), máximo 5 MB y 1000 filas de datos. El encabezado
+debe contener exactamente las columnas requeridas:
+
+```csv
+nombre,apellido,correo,password,rol
+Camila,Rojas,camila@example.com,Clave-Segura-2026!x,CLIENTE
+```
+
+`nombre`, `apellido`, `correo` y `password` son obligatorios; `rol` es opcional
+y por defecto `CLIENTE`. Los únicos roles admitidos son `CLIENTE` y `ADMIN`.
+Cada fila se valida y guarda de forma independiente: las filas correctas se
+aceptan aunque existan errores en otras. Correos ya registrados o repetidos en
+el archivo, datos requeridos ausentes, formato inválido y contraseñas que no
+cumplan la política se reportan como rechazados con número de fila y motivo.
+Los usuarios importados quedan `ACTIVO`.
+
+La respuesta incluye `total`, `aceptados` y `rechazados`; el panel presenta el
+resultado y permite descargarlo como CSV. Aunque el archivo de entrada contiene
+contraseñas para poder crear las cuentas, el informe nunca las incluye y el
+servidor solo conserva el hash. Usa el archivo únicamente en un canal seguro y
+elimínalo de forma segura una vez terminada la importación.
 
 
 ## Mensajes de contacto
@@ -615,8 +649,34 @@ los enlaces funcionan.
 
 ## Pendiente / próximos pasos
 
-- Importación masiva de usuarios vía CSV (RF12).
 - Despliegue remoto del servicio.
+
+## Registro de pruebas de integración (entorno real)
+
+Este registro separa los resultados previos documentados de las pruebas
+automatizadas. Los comandos de esta sección permiten repetir las verificaciones
+con la URL de PostgreSQL Neon configurada localmente; no se incluyen
+credenciales ni tokens. Las pruebas no se volvieron a ejecutar al actualizar
+este README.
+
+| Caso | Resultado registrado | Evidencia / cómo repetir |
+|---|---|---|
+| Permisos de contacto por API: sin sesión, CLIENTE activo y ADMIN bloqueado | Sin sesión `401`; CLIENTE y ADMIN bloqueado `403`; ADMIN activo consulta listado y detalle (`200`). | Resultados registrados en «Mensajes de contacto». Repetir con `Invoke-RestMethod` o Postman en `GET /api/admin/contacto/`, usando cada estado de sesión. |
+| Edición de contenidos y cambio de tema por `/admin` | La API y las pruebas de contenidos cubren edición por ADMIN, cambio de tema, rechazo de usuario sin sesión/cliente/ADMIN bloqueado y validación de campos. | `python manage.py test contenidos -v 2` (pruebas Django; no sustituyen el recorrido con Neon y React). |
+| Persistencia de contenidos/tema después de reiniciar Gestión | El README ya describe guardar, reiniciar y volver a consultar; no hay una salida de consola ni valores antes/después adjuntos como evidencia. | Guardar desde React `/admin`, reiniciar `runserver` y consultar `GET /api/contenidos`. Registrar el valor editado y `tema_activo` antes/después. |
+| Mensaje desde React persistido en PostgreSQL tras reinicio | Resultado previamente registrado: envío `201` y persistencia confirmada tras reiniciar Gestión. | Enviar el formulario público y consultar el mensaje desde el panel con ADMIN activo. El registro previo no incluye ID del mensaje ni salida de consulta. |
+
+Para repetir las comprobaciones automatizadas relacionadas:
+
+```powershell
+python manage.py test contenidos contacto -v 2
+```
+
+La suite usa la base de pruebas de Django; un resultado aprobado no demuestra
+por sí solo persistencia en Neon. Para la prueba real, ejecutar el recorrido
+manual con `GESTION_DATABASE_URL` configurada y comprobar el mismo contenido,
+tema y mensaje después del reinicio.
+
 
 ## Primer administrador
 
