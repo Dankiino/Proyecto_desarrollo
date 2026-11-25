@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     RegistroView, LoginView, LogoutView, MeView,
-    UsuarioListView, BloquearUsuarioView, DesbloquearUsuarioView,
+    UsuarioListView, UsuarioDetailView, ImportarUsuariosCSVView,
+    BloquearUsuarioView, DesbloquearUsuarioView,
     ActivarCuentaView, ReenviarActivacionView,
     SolicitarRecuperacionView, RestablecerPasswordView,
 )
@@ -16,6 +17,8 @@ urlpatterns = [
     path("logout", LogoutView.as_view()),
     path("usuarios/me", MeView.as_view()),
     path("usuarios", UsuarioListView.as_view()),
+    path("usuarios/importar-csv", ImportarUsuariosCSVView.as_view()),
+    path("usuarios/<uuid:pk>", UsuarioDetailView.as_view()),
     path("usuarios/<uuid:pk>/bloquear", BloquearUsuarioView.as_view()),
     path("usuarios/<uuid:pk>/desbloquear", DesbloquearUsuarioView.as_view()),
 ]
