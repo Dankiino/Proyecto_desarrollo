@@ -5,8 +5,19 @@ import {
   listarProductosCatalogo,
   obtenerCategoriasCatalogo,
 } from "../services/django";
+import { campo, textoAlternativo } from "../services/contenidos";
+
+const RUTAS_INTERNAS = {
+  "/": "inicio",
+  "/inicio": "inicio",
+  "/catalogo": "catalogo",
+  "/contacto": "contacto",
+  "/quienes-somos": "quienes-somos",
+  "/carrito": "carrito",
+};
 
 export default function Home({
+  contenidos,
   onNavegar,
   onAgregar,
   onVerProducto,
@@ -62,15 +73,39 @@ export default function Home({
     setIntento((actual) => actual + 1);
   };
 
+  const titulo = campo(contenidos, "titulo", "Bienvenido a Todo Balato");
+  const eslogan = campo(contenidos, "eslogan", "Bueno, bonito y balato.");
+  const tituloCategorias = campo(contenidos, "titulo_categorias", "Categorías");
+  const tituloDestacados = campo(contenidos, "titulo_destacados", "Productos destacados");
+  const bannerImagen = campo(contenidos, "banner_principal", "/logo-todo-balato.png");
+  const bannerAlt = textoAlternativo(contenidos, "banner_principal", "Logo de Todo Balato");
+  const bannerEnlace = campo(contenidos, "banner_enlace", "/catalogo");
+  const rutaInterna = RUTAS_INTERNAS[bannerEnlace.split("?")[0]];
+
+  const abrirBanner = (e) => {
+    if (!rutaInterna) return;
+    e.preventDefault();
+    onNavegar(rutaInterna);
+  };
+
   return (
     <>
-      <h1 className="titulo-marca">
-        Bienvenido a Todo Balato
-      </h1>
+      <section className="inicio-hero">
+        {bannerImagen && (
+          <a
+            href={bannerEnlace}
+            className="inicio-banner-enlace"
+            onClick={abrirBanner}
+            {...(!rutaInterna ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          >
+            <img src={bannerImagen} alt={bannerAlt} className="inicio-banner-img" />
+          </a>
+        )}
+        <h1 className="titulo-marca">{titulo}</h1>
+        <p>{eslogan}</p>
+      </section>
 
-      <p>Bueno, bonito y barato.</p>
-
-      <h2 className="subtitulo">Categorías</h2>
+      <h2 className="subtitulo">{tituloCategorias}</h2>
 
       <div className="categorias">
         {categorias.map((categoria) => (
@@ -87,9 +122,7 @@ export default function Home({
         ))}
       </div>
 
-      <h2 className="subtitulo">
-        Productos destacados
-      </h2>
+      <h2 className="subtitulo">{tituloDestacados}</h2>
 
       {cargando && (
         <p role="status">

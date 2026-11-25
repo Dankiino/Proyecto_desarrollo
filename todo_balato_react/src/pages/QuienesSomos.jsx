@@ -1,7 +1,17 @@
 import Button from "../components/Button";
+import { campo, textoAlternativo } from "../services/contenidos";
 import "./QuienesSomos.css";
 
-export default function QuienesSomos({ onNavegar }) {
+export default function QuienesSomos({ contenidos, onNavegar }) {
+  const titulo = campo(contenidos, "titulo", "¿Quiénes somos?");
+  const textoPrincipal = campo(
+    contenidos,
+    "texto",
+    "Somos Todo Balato, un mall chino con productos para el hogar, accesorios, artículos de uso diario y mucho más. Queremos ofrecerte una experiencia de compra cómoda, práctica y conveniente, con productos atractivos y precios accesibles."
+  );
+  const imagen = campo(contenidos, "imagen", "/logo-todo-balato.png");
+  const imagenAlt = textoAlternativo(contenidos, "imagen", "Logo de Todo Balato");
+
   const valores = [
     [
       "01",
@@ -25,23 +35,14 @@ export default function QuienesSomos({ onNavegar }) {
       <section className="quienes-hero card" aria-labelledby="quienes-title">
         <div>
           <p className="quienes-etiqueta">CONÓCENOS</p>
-          <h1 id="quienes-title">
-            De todo para tu día a día, <span>a precio balato.</span>
-          </h1>
-          <p>
-            Somos Todo Balato, un mall chino con productos para el hogar,
-            accesorios, artículos de uso diario y mucho más.
-          </p>
-          <p>
-            Queremos ofrecerte una experiencia de compra cómoda, práctica y
-            conveniente, con productos atractivos y precios accesibles.
-          </p>
+          <h1 id="quienes-title">{titulo}</h1>
+          <p>{textoPrincipal}</p>
         </div>
         <div className="quienes-logo-fondo">
           <img
             className="quienes-logo"
-            src="/logo-todo-balato.png"
-            alt="Logo de Todo Balato"
+            src={imagen}
+            alt={imagenAlt}
           />
         </div>
       </section>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { enviarMensajeContacto } from "../services/contacto";
+import { campo } from "../services/contenidos";
 
 const CAMPOS_INICIALES = {
   nombre: "",
@@ -43,7 +44,7 @@ function obtenerMensajeError(errorCampo) {
   return Array.isArray(errorCampo) ? errorCampo.join(" ") : String(errorCampo);
 }
 
-export default function Contacto() {
+export default function Contacto({ contenidos }) {
   const [datos, setDatos] = useState(CAMPOS_INICIALES);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -119,15 +120,26 @@ export default function Contacto() {
   const msgCorreo = obtenerMensajeError(errores.correo);
   const msgMensaje = obtenerMensajeError(errores.mensaje);
 
+  const titulo = campo(contenidos, "titulo", "Contáctanos");
+  const introduccion = campo(
+    contenidos,
+    "introduccion",
+    "¿Tienes alguna consulta sobre tus compras o nuestros productos? Escríbenos y te responderemos a la brevedad."
+  );
+  const correoContacto = campo(contenidos, "correo", "contacto@todobalato.cl");
+  const telefonoContacto = campo(contenidos, "telefono", "+56 2 2890 4310");
+  const horarioContacto = campo(
+    contenidos,
+    "horario",
+    "Lunes a Viernes de 09:00 a 18:30 hrs · Sábados de 10:00 a 14:00 hrs"
+  );
+
   return (
     <section className="contacto-pagina" aria-labelledby="titulo-contacto">
       <div className="contacto-contenedor">
         <header className="contacto-encabezado">
-          <h1 id="titulo-contacto">Contáctanos</h1>
-          <p>
-            ¿Tienes alguna consulta sobre tus compras o nuestros productos? Escríbenos
-            y te responderemos a la brevedad.
-          </p>
+          <h1 id="titulo-contacto">{titulo}</h1>
+          <p>{introduccion}</p>
         </header>
 
         <div className="contacto-layout">
@@ -137,18 +149,20 @@ export default function Contacto() {
               <div>
                 <dt>Correo</dt>
                 <dd>
-                  <a href="mailto:contacto@todobalato.cl">contacto@todobalato.cl</a>
+                  <a href={`mailto:${correoContacto}`}>{correoContacto}</a>
                 </dd>
               </div>
               <div>
                 <dt>Teléfono</dt>
                 <dd>
-                  <a href="tel:+56228904310">+56 2 2890 4310</a>
+                  <a href={`tel:${telefonoContacto.replace(/\s+/g, "")}`}>
+                    {telefonoContacto}
+                  </a>
                 </dd>
               </div>
               <div>
                 <dt>Horario</dt>
-                <dd>Lunes a Viernes de 09:00 a 18:30 hrs · Sábados de 10:00 a 14:00 hrs</dd>
+                <dd>{horarioContacto}</dd>
               </div>
             </dl>
           </aside>

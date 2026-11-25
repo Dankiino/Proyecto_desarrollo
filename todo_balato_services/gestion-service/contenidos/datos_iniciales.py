@@ -21,6 +21,8 @@ CONTENIDOS = [
     ("contacto", "titulo", "texto", "Contáctanos", ""),
     ("contacto", "introduccion", "texto", "¿Tienes dudas o comentarios? Escríbenos y te responderemos a la brevedad.", ""),
     ("contacto", "correo", "texto", "contacto@todobalato.example", ""),
+    ("contacto", "telefono", "texto", "+56 2 2890 4310", ""),
+    ("contacto", "horario", "texto", "Lunes a Viernes de 09:00 a 18:30 hrs · Sábados de 10:00 a 14:00 hrs", ""),
     ("quienes-somos", "titulo", "texto", "¿Quiénes somos?", ""),
     (
         "quienes-somos",

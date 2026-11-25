@@ -20,6 +20,8 @@ import {
   registro,
 } from "./services/django";
 import Contacto from "./pages/Contacto";
+import { obtenerContenidosPublicos } from "./services/contenidos";
+import { aplicarTema } from "./utils/tema";
 
 const CLAVE_CARRITO_ANONIMO = "todo_balato_carrito_anonimo";
 
@@ -50,7 +52,24 @@ export default function App() {
   const [cotizacion, setCotizacion] = useState(null);
   const [errorCarrito, setErrorCarrito] = useState("");
   const [orden, setOrden] = useState(null);
+  const [contenidos, setContenidos] = useState(null);
   const llaveOrden = useRef(null);
+
+  useEffect(() => {
+    let vigente = true;
+    obtenerContenidosPublicos()
+      .then((datos) => {
+        if (!vigente) return;
+        if (datos?.tema) aplicarTema(datos.tema);
+        if (datos?.paginas) setContenidos(datos.paginas);
+      })
+      .catch(() => {
+        // Si Gestión no responde, se mantienen los textos y estilos por defecto.
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
 
 
@@ -231,6 +250,7 @@ export default function App() {
 
         {pagina === "inicio" && (
           <Home
+            contenidos={contenidos?.inicio}
             onNavegar={navegar}
             onAgregar={agregar}
             onVerProducto={verProducto}
@@ -238,7 +258,10 @@ export default function App() {
         )}
 
         {pagina === "quienes-somos" && (
-          <QuienesSomos onNavegar={navegar} />
+          <QuienesSomos
+            contenidos={contenidos?.["quienes-somos"]}
+            onNavegar={navegar}
+          />
         )}
 
         {pagina === "catalogo" && (
@@ -292,7 +315,7 @@ export default function App() {
             onLogout={cerrarSesion}
           />
         )}
-        {pagina === "contacto" && <Contacto />}
+        {pagina === "contacto" && <Contacto contenidos={contenidos?.contacto} />}
       </main>
 
       <Footer onNavegar={navegar} />

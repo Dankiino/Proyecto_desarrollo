@@ -294,7 +294,7 @@ están definidos en `contenidos/datos_iniciales.py`.
 |---|---|
 | `contenidos_tema` | `balato-clasico` (activo por defecto), `balato-crema`, `balato-oscuro`, `balato-contraste` |
 | `contenidos_contenidopagina` | `inicio`: titulo, eslogan, titulo_categorias, titulo_destacados, banner_principal, banner_enlace |
-| | `contacto`: titulo, introduccion, correo |
+| | `contacto`: titulo, introduccion, correo, telefono, horario |
 | | `quienes-somos`: titulo, texto, imagen |
 
 ### Repetir el proceso
@@ -312,17 +312,67 @@ valor inicial.
 python manage.py shell -c "from contenidos.models import *; print(Tema.objects.count(), ContenidoPagina.objects.count(), list(Tema.objects.filter(activo=True).values_list('id', flat=True)))"
 ```
 
-Resultado esperado tras la primera carga: `4 12 ['balato-clasico']`. También se
+Resultado esperado tras la primera carga: `4 14 ['balato-clasico']`. También se
 pueden revisar en `http://127.0.0.1:8000/admin/` (Contenidos → Temas y
 Contenido páginas).
 
 Para comprobar que no duplica ni sobrescribe:
 
 1. Ejecuta `python manage.py cargar_datos_iniciales` dos veces: la segunda debe
-   informar `0 creados` y el comando de verificación debe seguir mostrando `4 12`.
+   informar `0 creados` y el comando de verificación debe seguir mostrando `4 14`.
 2. Cambia un valor desde el admin (por ejemplo `inicio.titulo`), vuelve a ejecutar
    la carga y confirma que conserva el cambio.
 3. Prueba automática: `python manage.py test contenidos`.
+
+## Administración de contenidos y temas (DEA-35)
+
+### Modelos y migraciones
+
+- `contenidos.Tema` (`contenidos/migrations/0001_initial.py`): almacena los cuatro
+  temas aprobados (`id`, `nombre`, `color_primario`, `color_secundario`,
+  `color_fondo`, `color_texto`, `color_acento`, `activo`).
+- `contenidos.ContenidoPagina` (`contenidos/migrations/0001_initial.py`): almacena
+  cada campo editable identificado por `(pagina, clave)` con `tipo` (`texto`,
+  `imagen` o `enlace`), `valor`, `texto_alternativo`, `actualizado_en` y
+  `actualizado_por`.
+
+### Endpoints
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/contenidos` | Público | Devuelve el tema activo y los contenidos agrupados por página (`inicio`, `contacto`, `quienes-somos`). |
+| GET | `/api/admin/contenidos` | ADMIN activo | Devuelve el tema activo, los 4 temas aprobados y la lista de contenidos editables con metadatos de edición. |
+| PATCH | `/api/admin/contenidos` | ADMIN activo | Actualiza uno o más contenidos en una transacción atómica. Si algún campo falla validación devuelve `400` con `campos` y no modifica los valores existentes. |
+| PUT | `/api/admin/tema-activo` | ADMIN activo | Cambia el tema activo a uno de los 4 temas aprobados (`{"tema_id": "balato-oscuro"}`). |
+
+### Autorización y cuenta administrativa
+
+- Todas las rutas `/api/admin/*` exigen token JWT válido (`JWTActivoAuthentication`)
+  y permiso `EsAdminContenidos`: usuario autenticado, `is_active=True`,
+  `rol="ADMIN"` y `estado="ACTIVO"`.
+- Las cuentas administrativas se provisionan con `python manage.py createsuperuser`
+  (nunca se guarda la contraseña en el repositorio ni se permite crear `ADMIN` por registro).
+
+### Validaciones
+
+- `texto`: obligatorio, máximo 2000 caracteres. Para `contacto.correo` se valida
+  formato de correo electrónico.
+- `imagen`: URL `http(s)` válida o ruta interna que comience con `/` (sin espacios),
+  máximo 500 caracteres, y `texto_alternativo` obligatorio (máximo 200 caracteres).
+- `enlace`: URL `http(s)` válida o ruta interna que comience con `/` (sin espacios),
+  máximo 500 caracteres.
+- Solo se pueden editar pares `(pagina, clave)` existentes; claves desconocidas
+  se rechazan con `400`.
+
+### Verificar persistencia
+
+1. Inicia sesión en `/admin` de React con tu cuenta administrativa y entra a la
+   pestaña **Contenidos y tema**.
+2. Edita un texto (por ejemplo `inicio.titulo`) y elige otro tema (por ejemplo
+   `Balato oscuro`).
+3. Reinicia el servidor de Gestión (`Ctrl+C` y vuelve a ejecutar `runserver`).
+4. Recarga la página pública de React o consulta `GET /api/contenidos`: los
+   cambios y el tema seleccionado deben mantenerse porque se guardan en PostgreSQL.
 
 ## Activación de cuentas y recuperación de contraseña
 
@@ -565,9 +615,7 @@ los enlaces funcionan.
 
 ## Pendiente / próximos pasos
 
-- CRUD de contenidos administrables (`ContenidoPagina`) y temas visuales (`Tema`); la carga inicial ya existe.
 - Importación masiva de usuarios vía CSV (RF12).
-- Conexión del frontend (React) a estos endpoints.
 - Despliegue remoto del servicio.
 
 ## Primer administrador

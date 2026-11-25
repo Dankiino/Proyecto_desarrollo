@@ -50,6 +50,9 @@ no una plantilla Django.
 | Quitar producto | Comercio `DELETE /api/carrito/items/<producto_id>` |
 | Consultar carrito guardado | Comercio `GET /api/carrito` (disponible en la API; la pantalla del carrito usa el cálculo de precios y existencias) |
 | Crear orden pendiente | Comercio `POST /api/checkout` |
+| Consultar contenidos y tema público | Gestión `GET /api/contenidos` |
+| Consultar/editar contenidos (admin) | Gestión `GET/PATCH /api/admin/contenidos` |
+| Cambiar tema activo (admin) | Gestión `PUT /api/admin/tema-activo` |
 
 El registro envía nombre y apellido por separado. Checkout envía el token JWT y
 la cabecera `Idempotency-Key`.
@@ -120,3 +123,25 @@ ejemplo, `http://127.0.0.1:8002/api`). Luego, desde CMD en esta carpeta:
 copy .env.example .env.local
 npm ci
 npm run dev -- --strictPort
+```
+
+## Administración de contenidos y temas (DEA-35)
+
+- **Ruta de administración:** `/admin` (por ejemplo `http://127.0.0.1:5173/admin`),
+  separada de la navegación pública.
+- **Acceso:** inicia sesión con el correo y contraseña de una cuenta con rol
+  `ADMIN` y estado `ACTIVO` (creada con `python manage.py createsuperuser` en
+  Gestión).
+- **Campos editables:**
+  - **Inicio:** título principal, eslogan, título de categorías, título de
+    destacados, banner principal (URL/ruta y texto alternativo) y enlace del banner.
+  - **Contacto:** título, introducción, correo, teléfono y horario.
+  - **Quiénes somos:** título, texto principal e imagen (URL/ruta y texto alternativo).
+- **Selección de tema:** permite elegir entre los 4 temas aprobados
+  (`balato-clasico`, `balato-crema`, `balato-oscuro`, `balato-contraste`). Las
+  páginas públicas leen el tema desde Gestión al cargar y aplican sus colores
+  mediante variables CSS (`--tema-*` y `data-tema`).
+- **Errores y persistencia:** los errores de validación de Django se muestran
+  debajo de cada campo sin sobrescribir los valores válidos guardados. Para
+  comprobar persistencia, guarda un cambio, reinicia Gestión y recarga la página
+  pública.

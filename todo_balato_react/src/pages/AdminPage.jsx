@@ -13,6 +13,7 @@ import {
     obtenerHistorialInventario,
     registrarAjusteInventario,
 } from "../services/adminApi";
+import AdminContenidos from "../components/AdminContenidos";
 
 const productoVacio = {
     nombre: "",
@@ -558,6 +559,14 @@ export default function AdminPage() {
                     aria-pressed={tipo === "contacto"}
                 >
                     Mensajes de contacto
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => cambiarSeccion("contenidos")}
+                    aria-pressed={tipo === "contenidos"}
+                >
+                    Contenidos y tema
                 </button>
             </div>
 
@@ -1128,6 +1137,17 @@ export default function AdminPage() {
                             </div>
                         )}
                 </div>
+            ) : tipo === "contenidos" ? (
+                <AdminContenidos
+                    token={token}
+                    onSesionVencida={(motivo) => {
+                        cerrarInventario();
+                        setSesion(null);
+                        setTipo("productos");
+                        setMensaje("");
+                        setError(motivo);
+                    }}
+                />
             ) : null}
         </section>
     );
