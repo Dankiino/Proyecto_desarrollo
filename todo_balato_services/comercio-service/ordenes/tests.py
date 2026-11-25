@@ -4,16 +4,18 @@ from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+from . import inventario
 from .authentication import UsuarioRemoto
-from .models import Orden
-from .views import CarritoCalcularView, CheckoutView
+from .catalogo_client import CatalogoNoDisponibleError
+from .models import DetalleOrden, Orden
+from .views import CheckoutView
 
 
 class CheckoutTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
         self.cliente = UsuarioRemoto(
-            {"user_id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "ACTIVO"}
+            {"id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "ACTIVO"}
         )
         self.items = [{"producto_id": "producto-1", "cantidad": 2}]
         self.lineas = [
@@ -26,6 +28,9 @@ class CheckoutTests(TestCase):
                 "problema": None,
             }
         ]
+        self.reservar_patcher = patch("ordenes.views.inventario.reservar")
+        self.reservar = self.reservar_patcher.start()
+        self.addCleanup(self.reservar_patcher.stop)
 
     def checkout(self, items=None, user=None, key="intento-1", total=20):
         payload = {
@@ -76,6 +81,7 @@ class CheckoutTests(TestCase):
         self.assertEqual(segunda.status_code, 200)
         self.assertEqual(primera.data["orden"]["id"], segunda.data["orden"]["id"])
         self.assertEqual(Orden.objects.count(), 1)
+        self.reservar.assert_called_once()
         calcular.assert_called_once()
 
     @patch("ordenes.views.calcular_lineas")
@@ -96,7 +102,7 @@ class CheckoutTests(TestCase):
         calcular.return_value = (self.lineas, 20, True)
         self.checkout(user=self.cliente)
         otro_cliente = UsuarioRemoto(
-            {"user_id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "ACTIVO"}
+            {"id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "ACTIVO"}
         )
 
         respuesta = self.checkout(user=otro_cliente)
@@ -107,22 +113,109 @@ class CheckoutTests(TestCase):
 
     @patch("ordenes.views.calcular_lineas")
     def test_price_change_returns_updated_total_without_creating_order(self, calcular):
-        calcular.return_value = (self.lineas, 20, True)
+        lineas_actualizadas = [{
+            **self.lineas[0],
+            "precio_unitario": 12,
+            "subtotal": 24,
+        }]
+        calcular.return_value = (lineas_actualizadas, 24, True)
 
         respuesta = self.checkout(user=self.cliente, total=19)
 
         self.assertEqual(respuesta.status_code, 409)
         self.assertEqual(respuesta.data["error"]["codigo"], "precio_cambiado")
-        self.assertEqual(respuesta.data["error"]["carrito"]["total"], 20)
+        self.assertEqual(respuesta.data["error"]["carrito"]["total"], 24)
+        self.assertEqual(
+            respuesta.data["error"]["carrito"]["lineas"][0]["precio_unitario"],
+            12,
+        )
         self.assertEqual(Orden.objects.count(), 0)
+
+    @patch("ordenes.views.calcular_lineas")
+    def test_inventory_reservation_happens_before_order_creation(self, calcular):
+        calcular.return_value = (self.lineas, 20, True)
+
+        def reservar_antes_de_crear(reserva):
+            self.assertFalse(Orden.objects.filter(idempotency_key="intento-1").exists())
+            self.assertEqual(reserva.lineas[0].producto_id, "producto-1")
+            self.assertEqual(reserva.lineas[0].cantidad, 2)
+
+        self.reservar.side_effect = reservar_antes_de_crear
+
+        respuesta = self.checkout(user=self.cliente)
+
+        self.assertEqual(respuesta.status_code, 201)
+        self.reservar.assert_called_once()
+        self.assertEqual(Orden.objects.count(), 1)
+
+    @patch("ordenes.views.calcular_lineas")
+    def test_failed_inventory_reservation_does_not_create_order(self, calcular):
+        calcular.return_value = (self.lineas, 20, True)
+        self.reservar.side_effect = inventario.InventarioNoDisponible("Sin stock")
+
+        respuesta = self.checkout(user=self.cliente)
+
+        self.assertEqual(respuesta.status_code, 503)
+        self.assertEqual(respuesta.data["error"]["codigo"], "inventario_no_disponible")
+        self.assertEqual(Orden.objects.count(), 0)
+
+    @patch("ordenes.views.calcular_lineas")
+    def test_insufficient_stock_does_not_reserve_or_create_order(self, calcular):
+        lineas = [{**self.lineas[0], "problema": "stock_insuficiente", "subtotal": 0}]
+        calcular.return_value = (lineas, 0, False)
+
+        respuesta = self.checkout(user=self.cliente, total=0)
+
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertEqual(respuesta.data["error"]["codigo"], "carrito_inconsistente")
+        self.assertEqual(Orden.objects.count(), 0)
+        self.reservar.assert_not_called()
+
+    @patch("ordenes.views.calcular_lineas")
+    def test_catalogo_unavailable_returns_503_without_creating_order(self, calcular):
+        calcular.side_effect = CatalogoNoDisponibleError("Catálogo no responde")
+
+        respuesta = self.checkout(user=self.cliente)
+
+        self.assertEqual(respuesta.status_code, 503)
+        self.assertEqual(respuesta.data["error"]["codigo"], "catalogo_no_disponible")
+        self.assertEqual(Orden.objects.count(), 0)
+        self.reservar.assert_not_called()
+
+    @patch("ordenes.views.calcular_lineas")
+    def test_order_lines_keep_name_price_quantity_and_total_snapshot(self, calcular):
+        lineas_precio_inicial = [dict(self.lineas[0])]
+        lineas_precio_nuevo = [{
+            **self.lineas[0],
+            "nombre": "Producto renombrado",
+            "precio_unitario": 12,
+            "subtotal": 24,
+        }]
+        calcular.side_effect = [
+            (lineas_precio_inicial, 20, True),
+            (lineas_precio_nuevo, 24, True),
+        ]
+
+        primera = self.checkout(user=self.cliente, key="snapshot-1")
+        segunda = self.checkout(user=self.cliente, key="snapshot-2", total=24)
+
+        self.assertEqual((primera.status_code, segunda.status_code), (201, 201))
+        primera_orden = Orden.objects.get(id=primera.data["orden"]["id"])
+        primera_linea = DetalleOrden.objects.get(orden=primera_orden)
+        self.assertEqual(primera_orden.total, 20)
+        self.assertEqual(primera_linea.nombre_producto, "Producto")
+        self.assertEqual(primera_linea.precio_unitario, 10)
+        self.assertEqual(primera_linea.cantidad, 2)
+        self.assertEqual(primera_linea.subtotal, 20)
+        self.assertEqual(Orden.objects.get(id=segunda.data["orden"]["id"]).total, 24)
 
     def test_checkout_rejects_visitors_administrators_and_blocked_accounts(self):
         visitantes = self.checkout()
         admin = UsuarioRemoto(
-            {"user_id": str(uuid.uuid4()), "rol": "ADMIN", "estado": "ACTIVO"}
+            {"id": str(uuid.uuid4()), "rol": "ADMIN", "estado": "ACTIVO"}
         )
         bloqueado = UsuarioRemoto(
-            {"user_id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "BLOQUEADO"}
+            {"id": str(uuid.uuid4()), "rol": "CLIENTE", "estado": "BLOQUEADO"}
         )
 
         respuesta_admin = self.checkout(user=admin, key="admin-key")
