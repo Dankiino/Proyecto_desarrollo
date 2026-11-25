@@ -177,6 +177,9 @@ REST_FRAMEWORK = {
     },
 }
 
+# Permite recibir CSV de hasta 5 MB más los encabezados multipart.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
