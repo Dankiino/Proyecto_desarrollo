@@ -211,3 +211,73 @@ export const registrarAjusteInventario = (token, id, datos) =>
             datos,
         }
     );
+
+async function solicitudUsuarios(ruta, token, opciones = {}) {
+    let respuesta;
+    try {
+        respuesta = await fetch(`${GESTION_API}${ruta}`, {
+            ...opciones,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                ...opciones.headers,
+            },
+        });
+    } catch {
+        throw new Error("No se pudo conectar con el servicio Gestión.");
+    }
+
+    const resultado = await respuesta.json().catch(() => null);
+    if (!respuesta.ok) {
+        const detalle = typeof resultado?.detail === "string"
+            ? resultado.detail
+            : Object.entries(resultado || {})
+                .map(([campo, errores]) =>
+                    `${campo}: ${Array.isArray(errores) ? errores.join(", ") : errores}`
+                )
+                .join(". ");
+        const error = new Error(
+            detalle || "No se pudo completar la operación de usuarios."
+        );
+        error.reporte = resultado?.aceptados && resultado?.rechazados
+            ? resultado
+            : null;
+        throw error;
+    }
+    return resultado;
+}
+
+export const listarUsuariosAdmin = (token) =>
+    solicitudUsuarios("/usuarios", token);
+
+export const crearUsuarioAdmin = (token, datos) =>
+    solicitudUsuarios("/usuarios", token, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+    });
+
+export const editarUsuarioAdmin = (token, id, datos) =>
+    solicitudUsuarios(`/usuarios/${encodeURIComponent(id)}`, token, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+    });
+
+export const bloquearUsuarioAdmin = (token, id) =>
+    solicitudUsuarios(`/usuarios/${encodeURIComponent(id)}/bloquear`, token, {
+        method: "POST",
+    });
+
+export const desbloquearUsuarioAdmin = (token, id) =>
+    solicitudUsuarios(`/usuarios/${encodeURIComponent(id)}/desbloquear`, token, {
+        method: "POST",
+    });
+
+export const importarUsuariosCSVAdmin = (token, archivo) => {
+    const datos = new FormData();
+    datos.append("archivo", archivo);
+    return solicitudUsuarios("/usuarios/importar-csv", token, {
+        method: "POST",
+        body: datos,
+    });
+};
