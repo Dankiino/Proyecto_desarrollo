@@ -415,3 +415,21 @@ Ejecución desde `todo_balato_services/catalogo-service` (con `.env` configurado
   (`prod_0013` a `prod_0034`, total `36` en `productos`) repartidos en las 6
   categorías activas, cada uno con 4 imágenes verificadas (HTTP 200) de Easy Chile
   y cumpliendo el validador estricto de MongoDB.
+
+## Registro de pruebas de aceptación (admin y servicios reales)
+
+Los resultados numéricos de la sección anterior corresponden a ejecuciones
+previas registradas en este README. No se repitieron durante esta actualización.
+La prueba del script sí se conecta directamente a la base MongoDB indicada por
+`CATALOGO_MONGO_URI`; los tests Django habituales, en cambio, usan dobles
+simulados para MongoDB y Gestión.
+
+| Caso | Resultado registrado / estado | Evidencia / cómo repetir |
+|---|---|---|
+| Validadores de MongoDB | En la ejecución registrada: `17/17` aprobadas; 2 productos válidos aceptados, 10 productos inválidos rechazados, 5 casos de categorías aprobados/rechazados según regla. El total de documentos quedó igual antes/después de la limpieza. | `.\venv\Scripts\python.exe scripts\verificar_validaciones_mongo.py`; requiere `.env` con acceso real a Atlas. El script imprime códigos de rechazo y conteos de integridad, y elimina sus documentos temporales. |
+| Producto con precio `0`, stock negativo o menos de 4 imágenes | Rechazados por MongoDB con código `121` en la ejecución registrada. También se probaron precio decimal, moneda USD, stock reservado superior al físico, 7 imágenes, imagen sin `alt` y URL `ftp://`. | Salida del script anterior: líneas `[OK] Rechazado (código 121)` y resultado final `17/17`. |
+| Colecciones existentes y preservación de documentos | Inspección registrada: `productos` y `categorias` con validadores estrictos e índices; los documentos existentes se conservaron. La tabla de conteos del README corresponde a la inspección previa. | El script informa conteos e índices al inicio y compara los conteos luego de limpiar los temporales. |
+| Permisos directos de ajustes de inventario | Tests Django documentan `401/403` para sin token, CLIENTE y ADMIN no activo, pero estos casos usan mocks para Gestión; no equivalen a llamadas en vivo entre servicios. | `python manage.py test productos -v 2`. Para integración real, usar `Invoke-WebRequest`/Postman contra `/api/admin/productos/<id>/ajustes` con perfiles reales de Gestión y registrar `401/403/201`. |
+| Crear, editar y desactivar productos/categorías desde `/admin` | El repositorio documenta la verificación de validadores, pero no incluye resultados de evidencia UI para el CRUD completo ni una comparación antes/después de documentos existentes. | Pendiente de adjuntar captura y conteo de documentos antes/después para cada operación CRUD en el panel conectado a Atlas. |
+| Integración de inventario contra MongoDB 8.0 local | Resultado previamente registrado con Docker y `catalogo_test`: ajuste válido, reservas conservadas, historial actualizado y operaciones inválidas rechazadas; los documentos se conservaron. Esta prueba local no es una prueba contra Atlas. | Resultados descritos en «Pruebas de integración con MongoDB 8.0»; no confundir con la validación del clúster Atlas. |
+
