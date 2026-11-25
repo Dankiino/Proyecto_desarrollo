@@ -1,18 +1,22 @@
+import logging
 import uuid
 from decimal import Decimal
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+from . import inventario
 from .catalogo_client import (
     CatalogoNoDisponibleError,
     ProductoNoEncontradoError,
     RespuestaCatalogoInvalidaError,
     obtener_producto,
 )
-from .models import Orden, DetalleOrden
+from .models import DetalleOrden, Orden
 from .permissions import EsClienteActivo
+
+log = logging.getLogger(__name__)
 
 
 def _error_validacion(campo, mensaje):
@@ -238,10 +242,35 @@ class CheckoutView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        orden_id = uuid.uuid4()
+        reserva = inventario.OrdenReserva(
+            id=orden_id,
+            cliente_id=uuid.UUID(str(request.user.id)),
+            lineas=tuple(
+                inventario.LineaReserva(
+                    producto_id=linea["producto_id"],
+                    cantidad=linea["cantidad"],
+                )
+                for linea in lineas
+            ),
+        )
+        try:
+            inventario.reservar(reserva)
+        except inventario.InventarioNoDisponible:
+            return Response(
+                {
+                    "error": {
+                        "codigo": "inventario_no_disponible",
+                        "mensaje": "No se pudo apartar el stock; la orden no fue creada.",
+                    }
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         try:
             with transaction.atomic():
                 orden = Orden.objects.create(
-                    id=uuid.uuid4(),
+                    id=orden_id,
                     cliente_id=request.user.id,
                     estado="PENDIENTE_PAGO",
                     moneda="CLP",
@@ -259,14 +288,29 @@ class CheckoutView(APIView):
                         subtotal=Decimal(linea["subtotal"]),
                     )
         except IntegrityError:
+            self._liberar_reserva_no_persistida(reserva)
             existente = Orden.objects.filter(idempotency_key=idempotency_key).first()
             if existente is None:
                 raise
             if not _coincide_con_orden(existente, request.user.id, items):
                 return _conflicto_idempotencia()
             return Response(self._serializar_orden(existente), status=status.HTTP_200_OK)
+        except DatabaseError:
+            self._liberar_reserva_no_persistida(reserva)
+            raise
 
         return Response(self._serializar_orden(orden), status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _liberar_reserva_no_persistida(reserva):
+        try:
+            inventario.liberar(reserva)
+        except Exception as exc:
+            log.error(
+                "No se pudo liberar reserva sin orden persistida %s: %s",
+                reserva.id,
+                type(exc).__name__,
+            )
 
     def _serializar_orden(self, orden):
         return {
