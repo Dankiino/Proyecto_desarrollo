@@ -42,6 +42,61 @@ class UsuarioSerializer(serializers.ModelSerializer):
         fields = ["id", "nombre", "apellido", "correo", "rol", "estado", "creado_en"]
 
 
+class AdministrarUsuarioSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=False,
+        max_length=128,
+    )
+
+    class Meta:
+        model = Usuario
+        fields = ["id", "nombre", "apellido", "correo", "password", "rol", "estado", "creado_en"]
+        read_only_fields = ["id", "estado", "creado_en"]
+        extra_kwargs = {
+            "rol": {"required": False, "default": "CLIENTE"},
+        }
+
+    def validate_correo(self, correo):
+        usuarios = Usuario.objects.filter(correo__iexact=correo)
+        if self.instance:
+            usuarios = usuarios.exclude(pk=self.instance.pk)
+        if usuarios.exists():
+            raise serializers.ValidationError("Ya existe una cuenta con este correo.")
+        return correo
+
+    def validate(self, attrs):
+        password = attrs.get("password")
+        if self.instance is None and not password:
+            raise serializers.ValidationError({"password": "La contraseña es obligatoria."})
+        if password:
+            usuario = self.instance or Usuario(
+                nombre=attrs.get("nombre", ""),
+                apellido=attrs.get("apellido", ""),
+                correo=attrs.get("correo", ""),
+            )
+            validar_password(password, usuario)
+        return attrs
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        return Usuario.objects.create_user(
+            password=password,
+            estado="ACTIVO",
+            **validated_data,
+        )
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", None)
+        for campo, valor in validated_data.items():
+            setattr(instance, campo, valor)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
+
+
 class CorreoSerializer(serializers.Serializer):
     correo = serializers.EmailField()
 
