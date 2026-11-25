@@ -145,3 +145,39 @@ npm run dev -- --strictPort
   debajo de cada campo sin sobrescribir los valores válidos guardados. Para
   comprobar persistencia, guarda un cambio, reinicia Gestión y recarga la página
   pública.
+
+## Registro de recorrido público y administración (entorno real)
+
+Los siguientes casos son verificaciones manuales de aceptación; React consulta
+los servicios reales configurados en `VITE_CATALOGO_API_URL`, Catálogo,
+Gestión y Comercio, no el fixture `src/data/mockCatalogo.json`. El código fuente
+y los contratos describen esos recorridos, pero no se encontró en este
+repositorio una captura, salida de navegador o registro fechado que demuestre
+cada recorrido de extremo a extremo. Por ello, no se marca aquí como resultado
+ejecutado lo que solo está descrito por la implementación. No se repitieron
+pruebas al actualizar este README.
+
+| Caso | Resultado esperado / estado de evidencia | Evidencia que registrar al ejecutar |
+|---|---|---|
+| Catálogo paginado y filtro por categoría | La UI debe solicitar páginas y filtrar por categoría; el endpoint admite `page`, `page_size` y `categoria`. Sin resultado manual verificable adjunto. | URL consultada y captura de página 1 y página 2; respuesta de `GET /api/productos?page=1&page_size=20&categoria=<id>`. |
+| Detalle y galería | El detalle activo debe mostrar imágenes y texto alternativo. Sin resultado manual verificable adjunto. | ID del producto de prueba, captura de la galería y respuesta de `GET /api/productos/<id>`. |
+| Formulario de contacto | Gestión documenta respuesta `201` y almacenamiento del mensaje en PostgreSQL. Falta evidencia del recorrido React completo en este README. | Código `201` de `POST /api/contacto/` y comprobación del mensaje desde el panel de ADMIN. |
+| Producto agotado o inactivo | Las tarjetas deben bloquear agregar cuando `disponible=false`; el contrato indica que el detalle inactivo responde `404`. Falta evidencia manual adjunta del intento de compra. | Captura del botón deshabilitado y respuesta de carrito/checkout al intentar operar con el producto. |
+| `/admin` para ADMIN activo, CLIENTE, ADMIN bloqueado y sin sesión | La protección debe validarse en la UI y en Django; ocultar o bloquear la pantalla no sustituye las respuestas `401/403` de la API. Sin registro de prueba de UI adjunto. | Capturas por rol y códigos de `GET/PATCH /api/admin/contenidos` y `PUT /api/admin/tema-activo`. |
+| Edición de contenidos y tema, reinicio de Gestión | La secuencia de persistencia está descrita arriba; falta registrar valores y evidencia antes/después de reiniciar. | Valor anterior/nuevo, tema seleccionado y consulta `GET /api/contenidos` tras el reinicio. |
+
+### Comprobaciones locales reproducibles
+
+Desde esta carpeta, los siguientes comandos verifican calidad del cliente y
+generan el frontend, pero **no** son pruebas de integración con los servicios:
+
+```cmd
+npm run lint
+npm run build
+```
+
+Para el recorrido real, iniciar React en `http://127.0.0.1:5173` y los servicios
+en los puertos indicados en «Ejecutar en Windows», con sus conexiones reales
+configuradas en archivos `.env` locales. No incluir esos secretos en capturas,
+comandos guardados ni documentación versionada.
+
