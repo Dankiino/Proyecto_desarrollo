@@ -129,8 +129,9 @@ MAILERS = {
 
 from datetime import timedelta
 
-# URL base del servicio de Gestión, para verificar el estado vigente de la cuenta
+# URL base del servicio de Gestion y Catalogo
 GESTION_URL = os.getenv("GESTION_URL", "http://127.0.0.1:8000")
+CATALOGO_API_URL = os.getenv("CATALOGO_API_URL", "http://127.0.0.1:8002/api")
 
 SIMPLE_JWT = {
     "ALGORITHM": "HS256",
