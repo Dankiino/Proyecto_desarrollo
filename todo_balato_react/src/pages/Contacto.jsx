@@ -1,168 +1,244 @@
-
 import { useState } from "react";
+import { enviarMensajeContacto } from "../services/contacto";
 
 const CAMPOS_INICIALES = {
-    nombre: "",
-    correo: "",
-    mensaje: "",
+  nombre: "",
+  correo: "",
+  mensaje: "",
 };
 
+const MAX_NOMBRE = 100;
+const MAX_MENSAJE = 2000;
+const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function validarFormulario(datos) {
+  const errores = {};
+  const nombre = datos.nombre.trim();
+  const correo = datos.correo.trim();
+  const mensaje = datos.mensaje.trim();
+
+  if (!nombre) {
+    errores.nombre = ["El nombre es obligatorio."];
+  } else if (datos.nombre.length > MAX_NOMBRE) {
+    errores.nombre = [`El nombre no puede superar los ${MAX_NOMBRE} caracteres.`];
+  }
+
+  if (!correo) {
+    errores.correo = ["El correo electrónico es obligatorio."];
+  } else if (!REGEX_CORREO.test(correo)) {
+    errores.correo = ["Ingresa un correo electrónico válido."];
+  }
+
+  if (!mensaje) {
+    errores.mensaje = ["El mensaje es obligatorio."];
+  } else if (datos.mensaje.length > MAX_MENSAJE) {
+    errores.mensaje = [`El mensaje no puede superar los ${MAX_MENSAJE} caracteres.`];
+  }
+
+  return errores;
+}
+
+function obtenerMensajeError(errorCampo) {
+  if (!errorCampo) return "";
+  return Array.isArray(errorCampo) ? errorCampo.join(" ") : String(errorCampo);
+}
+
 export default function Contacto() {
-    const [datos, setDatos] = useState(CAMPOS_INICIALES);
-    const [errores, setErrores] = useState({});
-    const [enviando, setEnviando] = useState(false);
-    const [exito, setExito] = useState("");
-    const [errorGeneral, setErrorGeneral] = useState("");
+  const [datos, setDatos] = useState(CAMPOS_INICIALES);
+  const [errores, setErrores] = useState({});
+  const [enviando, setEnviando] = useState(false);
+  const [exito, setExito] = useState("");
+  const [errorGeneral, setErrorGeneral] = useState("");
 
-    const cambiarCampo = (evento) => {
-        const { name, value } = evento.target;
+  const cambiarCampo = (evento) => {
+    const { name, value } = evento.target;
 
-        setDatos((actual) => ({
-            ...actual,
-            [name]: value,
-        }));
+    setDatos((actual) => ({
+      ...actual,
+      [name]: value,
+    }));
 
-        setErrores((actual) => ({
-            ...actual,
-            [name]: undefined,
-        }));
+    setErrores((actual) => {
+      if (!actual[name]) return actual;
+      const siguiente = { ...actual };
+      delete siguiente[name];
+      return siguiente;
+    });
 
-        setExito("");
-        setErrorGeneral("");
+    setExito("");
+    setErrorGeneral("");
+  };
+
+  const enviarMensaje = async (evento) => {
+    evento.preventDefault();
+    if (enviando) return;
+
+    const erroresLocales = validarFormulario(datos);
+    if (Object.keys(erroresLocales).length > 0) {
+      setErrores(erroresLocales);
+      setExito("");
+      setErrorGeneral("Revisa los campos marcados antes de enviar.");
+      return;
+    }
+
+    setEnviando(true);
+    setErrores({});
+    setExito("");
+    setErrorGeneral("");
+
+    const payload = {
+      nombre: datos.nombre.trim(),
+      correo: datos.correo.trim(),
+      mensaje: datos.mensaje.trim(),
     };
 
-    const enviarMensaje = async (evento) => {
-        evento.preventDefault();
+    try {
+      const respuesta = await enviarMensajeContacto(payload);
+      if (respuesta?.status !== 201) {
+        setErrorGeneral("No se pudo confirmar el envío del mensaje.");
+        return;
+      }
 
-        if (enviando) return;
+      setExito("Tu mensaje fue enviado correctamente.");
+      setDatos({ ...CAMPOS_INICIALES });
+    } catch (error) {
+      if (error?.campos && typeof error.campos === "object") {
+        setErrores(error.campos);
+        setErrorGeneral("Revisa los campos marcados antes de enviar.");
+      } else {
+        setErrorGeneral(
+          error?.message || "No fue posible enviar el mensaje. Intenta nuevamente."
+        );
+      }
+    } finally {
+      setEnviando(false);
+    }
+  };
 
-        setEnviando(true);
-        setErrores({});
-        setExito("");
-        setErrorGeneral("");
+  const msgNombre = obtenerMensajeError(errores.nombre);
+  const msgCorreo = obtenerMensajeError(errores.correo);
+  const msgMensaje = obtenerMensajeError(errores.mensaje);
 
-        try {
-            const respuesta = await fetch(
-                "http://127.0.0.1:8000/api/contacto/",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(datos),
-                }
-            );
+  return (
+    <section className="contacto-pagina" aria-labelledby="titulo-contacto">
+      <div className="contacto-contenedor">
+        <header className="contacto-encabezado">
+          <h1 id="titulo-contacto">Contáctanos</h1>
+          <p>
+            ¿Tienes alguna consulta sobre tus compras o nuestros productos? Escríbenos
+            y te responderemos a la brevedad.
+          </p>
+        </header>
 
-            const resultado = await respuesta.json();
+        <div className="contacto-layout">
+          <aside className="contacto-info" aria-label="Datos de contacto">
+            <h2>Canales de atención</h2>
+            <dl className="contacto-datos">
+              <div>
+                <dt>Correo</dt>
+                <dd>
+                  <a href="mailto:contacto@todobalato.cl">contacto@todobalato.cl</a>
+                </dd>
+              </div>
+              <div>
+                <dt>Teléfono</dt>
+                <dd>
+                  <a href="tel:+56228904310">+56 2 2890 4310</a>
+                </dd>
+              </div>
+              <div>
+                <dt>Horario</dt>
+                <dd>Lunes a Viernes de 09:00 a 18:30 hrs · Sábados de 10:00 a 14:00 hrs</dd>
+              </div>
+            </dl>
+          </aside>
 
-            if (!respuesta.ok) {
-                if (respuesta.status === 400) {
-                    setErrores(resultado);
-                } else {
-                    setErrorGeneral(
-                        "No fue posible enviar el mensaje. Intenta nuevamente."
-                    );
-                }
-                return;
-            }
-
-            if (respuesta.status !== 201) {
-                setErrorGeneral(
-                    "No se pudo confirmar el envío del mensaje."
-                );
-                return;
-            }
-
-            setExito("Tu mensaje fue enviado correctamente.");
-            setDatos({ ...CAMPOS_INICIALES });
-        } catch {
-            setErrorGeneral(
-                "No fue posible conectar con el servidor. Intenta nuevamente."
-            );
-        } finally {
-            setEnviando(false);
-        }
-    };
-
-    return (
-        <section className="contacto-pagina">
-            <div className="contacto-contenedor">
-                <h1>Contáctanos</h1>
-                <p>
-                    ¿Tienes alguna consulta? Escríbenos y nos pondremos
-                    en contacto contigo.
-                </p>
-
-                <form onSubmit={enviarMensaje} noValidate>
-                    <div className="contacto-campo">
-                        <label htmlFor="contacto-nombre">Nombre</label>
-                        <input
-                            id="contacto-nombre"
-                            type="text"
-                            name="nombre"
-                            value={datos.nombre}
-                            onChange={cambiarCampo}
-                            maxLength={100}
-                            required
-                            aria-invalid={Boolean(errores.nombre)}
-                        />
-                        {errores.nombre && (
-                            <small role="alert">{errores.nombre.join(" ")}</small>
-                        )}
-                    </div>
-
-                    <div className="contacto-campo">
-                        <label htmlFor="contacto-correo">
-                            Correo electrónico
-                        </label>
-                        <input
-                            id="contacto-correo"
-                            type="email"
-                            name="correo"
-                            value={datos.correo}
-                            onChange={cambiarCampo}
-                            required
-                            aria-invalid={Boolean(errores.correo)}
-                        />
-                        {errores.correo && (
-                            <small role="alert">{errores.correo.join(" ")}</small>
-                        )}
-                    </div>
-
-                    <div className="contacto-campo">
-                        <label htmlFor="contacto-mensaje">Mensaje</label>
-                        <textarea
-                            id="contacto-mensaje"
-                            name="mensaje"
-                            value={datos.mensaje}
-                            onChange={cambiarCampo}
-                            maxLength={2000}
-                            rows={6}
-                            required
-                            aria-invalid={Boolean(errores.mensaje)}
-                        />
-                        {errores.mensaje && (
-                            <small role="alert">{errores.mensaje.join(" ")}</small>
-                        )}
-                    </div>
-
-                    {errorGeneral && (
-                        <p role="alert" className="contacto-error">
-                            {errorGeneral}
-                        </p>
-                    )}
-
-                    {exito && (
-                        <p role="status" className="contacto-exito">
-                            {exito}
-                        </p>
-                    )}
-
-                    <button type="submit" disabled={enviando}>
-                        {enviando ? "Enviando..." : "Enviar mensaje"}
-                    </button>
-                </form>
+          <form className="contacto-formulario" onSubmit={enviarMensaje} noValidate>
+            <div className="contacto-campo">
+              <label htmlFor="contacto-nombre">Nombre</label>
+              <input
+                id="contacto-nombre"
+                type="text"
+                name="nombre"
+                autoComplete="name"
+                value={datos.nombre}
+                onChange={cambiarCampo}
+                maxLength={MAX_NOMBRE}
+                required
+                aria-invalid={Boolean(msgNombre)}
+                aria-describedby={msgNombre ? "error-nombre" : "contador-nombre"}
+              />
+              <small id="contador-nombre" className="contacto-contador">
+                {datos.nombre.length}/{MAX_NOMBRE} caracteres
+              </small>
+              {msgNombre && (
+                <small id="error-nombre" role="alert" className="contacto-error-campo">
+                  {msgNombre}
+                </small>
+              )}
             </div>
-        </section>
-    );
+
+            <div className="contacto-campo">
+              <label htmlFor="contacto-correo">Correo electrónico</label>
+              <input
+                id="contacto-correo"
+                type="email"
+                name="correo"
+                autoComplete="email"
+                value={datos.correo}
+                onChange={cambiarCampo}
+                required
+                aria-invalid={Boolean(msgCorreo)}
+                aria-describedby={msgCorreo ? "error-correo" : undefined}
+              />
+              {msgCorreo && (
+                <small id="error-correo" role="alert" className="contacto-error-campo">
+                  {msgCorreo}
+                </small>
+              )}
+            </div>
+
+            <div className="contacto-campo">
+              <label htmlFor="contacto-mensaje">Mensaje</label>
+              <textarea
+                id="contacto-mensaje"
+                name="mensaje"
+                value={datos.mensaje}
+                onChange={cambiarCampo}
+                maxLength={MAX_MENSAJE}
+                rows={5}
+                required
+                aria-invalid={Boolean(msgMensaje)}
+                aria-describedby={msgMensaje ? "error-mensaje" : "contador-mensaje"}
+              />
+              <small id="contador-mensaje" className="contacto-contador">
+                {datos.mensaje.length}/{MAX_MENSAJE} caracteres
+              </small>
+              {msgMensaje && (
+                <small id="error-mensaje" role="alert" className="contacto-error-campo">
+                  {msgMensaje}
+                </small>
+              )}
+            </div>
+
+            {errorGeneral && (
+              <p role="alert" className="contacto-error">
+                {errorGeneral}
+              </p>
+            )}
+
+            {exito && (
+              <p role="status" className="contacto-exito">
+                {exito}
+              </p>
+            )}
+
+            <button type="submit" disabled={enviando}>
+              {enviando ? "Enviando..." : "Enviar mensaje"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  );
 }

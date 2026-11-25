@@ -32,6 +32,7 @@ export default function Footer({ onNavegar }) {
 
         <div className="footer-enlaces">
           <h3>Ayuda</h3>
+          <Enlace a="contacto" onNavegar={onNavegar}>Contacto</Enlace>
           <Enlace a="carrito" onNavegar={onNavegar}>Mi carrito</Enlace>
           <Enlace a="pago" onNavegar={onNavegar}>Pagar</Enlace>
         </div>
