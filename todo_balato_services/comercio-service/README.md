@@ -103,7 +103,18 @@ El checkout requiere un JWT válido emitido por Gestión y la cabecera
 (`GET /api/usuarios/me`) el rol y el estado vigentes: una cuenta bloqueada deja
 de comprar aunque conserve un token emitido antes del bloqueo. Si Gestión no
 responde, la solicitud se rechaza con 503 (no se asume que la cuenta sigue activa).
-Consulta los contratos y validaciones del código antes de integrar un cliente.
+Solo se permite checkout a `CLIENTE` activo. El carrito debe tener al menos un
+producto, cantidades enteras positivas y un solo renglón por producto. El total
+se vuelve a calcular consultando Catálogo; si cambió frente a `total_esperado`,
+se responde `409 precio_cambiado` con los precios y total vigentes. La misma
+clave y el mismo pedido devuelven la orden original; reutilizarla con otro
+pedido devuelve `409 conflicto`.
+
+Antes de persistir la orden, checkout llama a `ordenes/inventario.py` para
+reservar las líneas. Si la reserva falla, devuelve `503 inventario_no_disponible`
+y no crea la orden. Mientras DEA-46 no implemente
+Catálogo/inventario, ese adaptador falla de forma segura; los tests simulan
+éxito y fallo de la reserva.
 
 ## Pago con Webpay Plus (ambiente de prueba)
 
@@ -129,7 +140,8 @@ Flujo y reglas (módulo `ordenes/pagos.py`):
   y no se escribe en logs ni en respuestas públicas.
 - Webpay Plus no devuelve moneda: solo se crean transacciones de órdenes en CLP.
 - Pendiente (DEA-46): `ordenes/inventario.py` tiene `reservar`, `consolidar` y `liberar` como stubs que fallan de forma
-  segura. Hasta entonces el inicio de pago responde 503 y no se puede completar una compra real.
+  segura. Hasta entonces checkout y el inicio de pago responden 503 sin simular
+  una reserva en producción y no se puede completar una compra real.
 
 ### Pruebas
 
@@ -139,6 +151,9 @@ python manage.py test ordenes
 
 `ordenes/test_pagos.py` simula Webpay y el inventario: aprobación, rechazo, cancelación, respuesta alterada (monto y
 orden), retorno repetido, Webpay sin respuesta con nueva revisión, doble clic, orden ajena y administrador.
+`ordenes/tests.py` cubre entradas inválidas y duplicadas, permisos, reintentos y
+conflictos de idempotencia, precio actualizado, snapshot de líneas, falta de
+stock, Catálogo no disponible y reserva simulada antes de persistir la orden.
 
 ### Pruebas manuales en sandbox (22-11-2026)
 
@@ -156,11 +171,4 @@ reemplazados temporalmente por `return`.
 
 El caso "Webpay sin respuesta" se cubre además con pruebas automáticas (`test_pagos.py`).
 
-### Limitaciones conocidas
 
-- El inventario (`reservar`, `consolidar`, `liberar`) está pendiente de DEA-46. Hasta entonces el inicio de pago responde 503.
-- Una transacción que Webpay aborta se detecta por el texto `aborted` del error (422) de `commit`. Es una suposición basada
-  en el comportamiento observado en el sandbox, no una garantía documentada por Transbank.
-- Una orden que queda en `PENDIENTE_PAGO` por un retorno que nunca llega mantiene su reserva hasta que exista el vencimiento
-  de 15 minutos con liberación y la conciliación (RF-30, RF-38).
-- Webpay Plus no devuelve moneda: solo se crean transacciones de órdenes en CLP.
