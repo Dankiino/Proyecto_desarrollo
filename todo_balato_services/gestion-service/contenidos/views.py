@@ -98,8 +98,6 @@ class ContenidosAdminView(APIView):
             else:
                 validos.append((contenido, limpios))
 
-        # Si algún campo es inválido no se guarda nada: los valores válidos que ya
-        # estaban en la base se conservan intactos.
         if errores:
             return Response(
                 {"detail": "Revisa los campos marcados.", "campos": errores},

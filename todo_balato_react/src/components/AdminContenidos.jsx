@@ -109,7 +109,6 @@ export default function AdminContenidos({ token, onSesionVencida }) {
     setGuardando(true);
     try {
       const respuesta = await guardarContenidosAdmin(token, cambios);
-      // Se conservan los borradores de otras páginas que aún no se guardan.
       const anteriores = borrador;
       recibir(respuesta);
       setBorrador((nuevo) => {

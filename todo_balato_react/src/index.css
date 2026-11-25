@@ -408,6 +408,10 @@ button { font-family: inherit; cursor: pointer; }
 
 .producto-detalle-boton {
   width: 100%;
+  margin-top: auto;
+}
+
+.producto-detalle-boton + .producto-boton {
   margin-top: 8px;
 }
 
@@ -1551,7 +1555,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 /* =====================================
-   TEMA ACTIVO (GESTIÓN / DEA-35)
+   TEMA ACTIVO
    ===================================== */
 
 :root[data-tema] {
@@ -1605,7 +1609,7 @@ button { font-family: inherit; cursor: pointer; }
     border-top: 3px solid var(--tema-primario);
 }
 
-/* Ajustes de contraste para Modo Oscuro (balato-oscuro: fondo #171717, texto #FFFFFF, primario #D0311E, secundario #800000, acento #F7D87E) */
+/* Contraste para modo oscuro */
 
 :root[data-tema="balato-oscuro"] {
     --color-negro: #F5F5F5;

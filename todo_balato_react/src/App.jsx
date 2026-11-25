@@ -63,9 +63,7 @@ export default function App() {
         if (datos?.tema) aplicarTema(datos.tema);
         if (datos?.paginas) setContenidos(datos.paginas);
       })
-      .catch(() => {
-        // Si Gestión no responde, se mantienen los textos y estilos por defecto.
-      });
+      .catch(() => {});
     return () => {
       vigente = false;
     };

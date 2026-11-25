@@ -1,4 +1,4 @@
-// Traduce un tema de Gestión a variables CSS (ver bloque "TEMA ACTIVO" en index.css).
+// Aplica las variables CSS del tema activo.
 const VARIABLES = {
   color_primario: "--tema-primario",
   color_secundario: "--tema-secundario",

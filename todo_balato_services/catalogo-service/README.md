@@ -346,3 +346,72 @@ el soporte para historial_ajustes.
 
 Queda pendiente la integracion con las operaciones de
 reserva, consolidacion y liberacion de DEA-46.
+
+---
+
+## Revisión de validadores e índices en MongoDB (DEA-32)
+
+Se inspeccionaron las colecciones existentes de `catalogo_db` en MongoDB Atlas
+sin borrar ni recrear datos, comparándolas contra las reglas acordadas en
+`Investigaciones/validaciones.md`.
+
+### Estado encontrado
+
+| Colección | Documentos | Validación | Índices existentes |
+|---|---|---|---|
+| `productos` | 14 | `$jsonSchema` + `$expr` (`strict` / `error`) | `_id_`, `activo_1_categoria_id_1` |
+| `categorias` | 7 | `$jsonSchema` (`strict` / `error`) | `_id_` |
+
+- **Validador de `productos`:** exige los 13 campos obligatorios (`_id`, `nombre`,
+  `descripcion`, `precio`, `moneda`, `stock_fisico`, `stock_reservado`,
+  `categoria_id`, `imagenes`, `activo`, `version`, `creado_en`, `actualizado_en`),
+  `precio` entero `>= 1`, `moneda: "CLP"`, `stock_fisico` y `stock_reservado`
+  enteros `>= 0`, entre 4 y 6 imágenes con `url` `^https?://` y `alt` no vacío,
+  `version >= 1`, fechas tipo `date` y `$expr: { $lte: ["$stock_reservado", "$stock_fisico"] }`.
+- **Validador de `categorias`:** exige `_id` con patrón `^[a-z0-9-]+$`, `nombre`
+  entre 2 y 60 caracteres, `descripcion` opcional de máximo 200 caracteres,
+  `orden` entero `>= 0` y `activa` booleano.
+
+### Observaciones identificadas (sin modificar la base compartida)
+
+- Los validadores e índices existentes cumplen las reglas acordadas en
+  `Investigaciones/validaciones.md`, por lo que **no se aplicaron cambios**
+  sobre las colecciones compartidas.
+- **Mejoras opcionales documentadas para evaluar en equipo antes de tocar la base:**
+  - En `productos`, `nombre`, `descripcion` y `imagenes[].alt` usan `minLength: 1`
+    (no bloquean cadenas de solo espacios en MongoDB; hoy ese control lo hace Django).
+  - La existencia de `categoria_id` se valida en Django, ya que MongoDB no tiene
+    claves foráneas.
+  - En `categorias`, un índice `{ activa: 1, orden: 1 }` puede acelerar el listado
+    público ordenado si la colección crece.
+  - Cualquier cambio futuro al validador de `productos` debe conservar soporte
+    para el campo `historial_ajustes` usado por DEA-43.
+
+### Script repetible de pruebas
+
+El script [scripts/verificar_validaciones_mongo.py](./scripts/verificar_validaciones_mongo.py)
+inspecciona las colecciones existentes y ejecuta 17 pruebas directamente contra
+MongoDB (aceptación de documentos válidos y rechazo de inválidos con códigos
+`121` y `11000`). Todos los documentos de prueba usan un prefijo temporal único
+y se eliminan siempre en el bloque `finally`.
+
+Ejecución desde `todo_balato_services/catalogo-service` (con `.env` configurado):
+
+```powershell
+.\venv\Scripts\python.exe scripts\verificar_validaciones_mongo.py
+```
+
+### Resultados de ejecución
+
+- **Productos válidos aceptados (2/2):** producto con 4 imágenes y producto con 6 imágenes.
+- **Productos inválidos rechazados (10/10):** precio `0`, precio decimal, moneda `USD`,
+  stock físico negativo, stock reservado mayor al físico, 3 imágenes, 7 imágenes,
+  imagen sin `alt`, URL `ftp://` (código `121`) y `_id` repetido (código `11000`).
+- **Categorías (5/5):** categoría válida aceptada; rechazadas `_id` con mayúsculas/espacios,
+  `nombre` de 1 carácter, `orden` negativo y `activa` no booleano (código `121`).
+- **Integridad:** `17/17` pruebas aprobadas; se conservaron intactos los documentos
+  existentes.
+- **Carga adicional de catálogo:** se insertaron `22` productos nuevos
+  (`prod_0013` a `prod_0034`, total `36` en `productos`) repartidos en las 6
+  categorías activas, cada uno con 4 imágenes verificadas (HTTP 200) de Easy Chile
+  y cumpliendo el validador estricto de MongoDB.

@@ -1,9 +1,4 @@
-"""Reglas de validación de los contenidos editables.
-
-Cada `ContenidoPagina` existente es un campo editable; aquí solo se valida el
-valor recibido según el tipo del registro (texto, imagen o enlace) y, cuando
-corresponde, una regla específica de la página/clave.
-"""
+"""Validaciones para los contenidos editables de las páginas."""
 
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator, URLValidator
@@ -35,10 +30,7 @@ def _validar_ruta_o_url(valor):
 
 
 def validar_contenido(contenido, datos):
-    """Valida `datos` ({valor, texto_alternativo}) para el `ContenidoPagina` dado.
-
-    Devuelve (valores_limpios, errores). `errores` es un dict campo -> [mensajes].
-    """
+    """Valida valor y texto alternativo según el tipo del contenido."""
     errores = {}
     valor = datos.get("valor", contenido.valor)
     alt = datos.get("texto_alternativo", contenido.texto_alternativo)
