@@ -1,10 +1,8 @@
 from django.urls import path
 from .views import CarritoCalcularView, CheckoutView
-<<<<<<< HEAD
 from .views_pagos import IniciarPagoView, ReverificarPagoView, retorno_webpay
-=======
 from .carrito_views import CarritoView, CombinarCarritoView, ItemCarritoView
->>>>>>> d95303ebc4943a970bd0d320c887f2e49e2fd7e9
+
 
 urlpatterns = [
     path("carrito", CarritoView.as_view()),
