@@ -1,8 +1,10 @@
 import re
+import uuid
 from datetime import timedelta
 
 from django.core import mail
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -181,7 +183,7 @@ class RecuperacionTests(FlujoCuentaTestCase):
         crear_usuario()
         self.solicitar_recuperacion("ana@example.com")
         token = self.token_enviado()
-        alterado = "x" + token[1:]
+        alterado = ("x" if token[0] != "x" else "y") + token[1:]
         self.assertEqual(self.restablecer(alterado).status_code, 400)
         TokenCuenta.objects.update(vence_en=timezone.now() - timedelta(seconds=1))
         self.assertEqual(self.restablecer(token).status_code, 400)
@@ -257,6 +259,189 @@ class BloqueoTests(FlujoCuentaTestCase):
 
         admin.post(f"/api/usuarios/{Usuario.objects.get(correo='ana@example.com').id}/desbloquear")
         self.assertEqual(cliente.get("/api/usuarios/me").status_code, 200)
+
+
+class AdministracionUsuariosTests(TestCase):
+    def setUp(self):
+        self.api = APIClient()
+        self.admin = crear_usuario("admin@example.com", rol="ADMIN")
+        self.api.force_authenticate(user=self.admin)
+
+    def csv(self, texto, nombre="usuarios.csv"):
+        return SimpleUploadedFile(
+            nombre,
+            texto.encode("utf-8"),
+            content_type="text/csv",
+        )
+
+    def test_solo_admin_activo_puede_operar_usuarios(self):
+        cliente = crear_usuario()
+        bloqueado = crear_usuario("bloqueado@example.com", estado="BLOQUEADO")
+        usuario_nuevo = {
+            "nombre": "Nuevo",
+            "apellido": "Usuario",
+            "correo": "nuevo@example.com",
+            "password": CLAVE_NUEVA,
+        }
+
+        sin_sesion = APIClient()
+        self.assertIn(sin_sesion.get("/api/usuarios").status_code, (401, 403))
+
+        for usuario in (cliente, bloqueado):
+            api = APIClient()
+            api.force_authenticate(user=usuario)
+            self.assertEqual(api.get("/api/usuarios").status_code, 403)
+            self.assertEqual(api.post("/api/usuarios", usuario_nuevo, format="json").status_code, 403)
+
+        respuesta = self.api.get("/api/usuarios")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotIn("password", respuesta.data[0])
+
+    def test_admin_crea_edita_y_no_expone_contrasenas(self):
+        creada = self.api.post("/api/usuarios", {
+            "nombre": "Maria",
+            "apellido": "Lopez",
+            "correo": "maria@example.com",
+            "password": CLAVE_NUEVA,
+        }, format="json")
+
+        self.assertEqual(creada.status_code, 201)
+        usuario = Usuario.objects.get(correo="maria@example.com")
+        self.assertEqual((usuario.rol, usuario.estado), ("CLIENTE", "ACTIVO"))
+        self.assertNotEqual(usuario.password, CLAVE_NUEVA)
+        self.assertNotIn("password", creada.data)
+
+        editada = self.api.patch(f"/api/usuarios/{usuario.pk}", {
+            "nombre": "Maria Elena",
+            "password": "Tercera-Clave-2028!z",
+        }, format="json")
+
+        self.assertEqual(editada.status_code, 200)
+        usuario.refresh_from_db()
+        self.assertEqual(usuario.nombre, "Maria Elena")
+        self.assertTrue(usuario.check_password("Tercera-Clave-2028!z"))
+        self.assertNotIn("password", editada.data)
+
+    def test_no_se_puede_quitar_el_rol_al_ultimo_admin_activo(self):
+        respuesta = self.api.patch(
+            f"/api/usuarios/{self.admin.pk}",
+            {"rol": "CLIENTE"},
+            format="json",
+        )
+
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(Usuario.objects.get(pk=self.admin.pk).rol, "ADMIN")
+
+    def test_no_se_puede_bloquearse_a_si_mismo_ni_al_ultimo_admin(self):
+        respuesta_propio = self.api.post(f"/api/usuarios/{self.admin.pk}/bloquear")
+        self.assertEqual(respuesta_propio.status_code, 400)
+        Usuario.objects.filter(pk=self.admin.pk).update(estado="BLOQUEADO")
+
+        objetivo = crear_usuario("ultimo@example.com", rol="ADMIN")
+        actor_no_persistido = Usuario(
+            id=uuid.uuid4(),
+            nombre="Admin",
+            apellido="Temporal",
+            correo="temporal@example.com",
+            rol="ADMIN",
+            estado="ACTIVO",
+        )
+        self.api.force_authenticate(user=actor_no_persistido)
+        respuesta_ultimo = self.api.post(f"/api/usuarios/{objetivo.pk}/bloquear")
+
+        self.assertEqual(respuesta_ultimo.status_code, 400)
+        self.assertEqual(Usuario.objects.get(pk=objetivo.pk).estado, "ACTIVO")
+
+    def test_bloquear_y_desbloquear_usuario(self):
+        cliente = crear_usuario()
+        bloqueado = self.api.post(f"/api/usuarios/{cliente.pk}/bloquear")
+        self.assertEqual(bloqueado.status_code, 200)
+        self.assertEqual(bloqueado.data["estado"], "BLOQUEADO")
+
+        desbloqueado = self.api.post(f"/api/usuarios/{cliente.pk}/desbloquear")
+        self.assertEqual(desbloqueado.status_code, 200)
+        self.assertEqual(desbloqueado.data["estado"], "ACTIVO")
+
+    def test_csv_vacio_devuelve_informe_de_rechazo(self):
+        respuesta = self.api.post(
+            "/api/usuarios/importar-csv",
+            {"archivo": self.csv("")},
+            format="multipart",
+        )
+
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(respuesta.data["aceptados"], [])
+        self.assertEqual(respuesta.data["rechazados"][0]["fila"], 0)
+        self.assertIn("vacío", respuesta.data["rechazados"][0]["razon"])
+
+    def test_csv_procesa_filas_validas_y_reporta_errores_sin_password(self):
+        contenido = (
+            "\ufeffnombre,apellido,correo,password,rol\n"
+            "José,Ríos,jose@example.com,Clave-Segura-2026!x,CLIENTE\n"
+            "Ana,Perez,jose@example.com,Otra-Clave-Segura-2027!y,CLIENTE\n"
+            "Mala,Fila,no-es-correo,Otra-Clave-Segura-2027!y,CLIENTE\n"
+            ",SinNombre,vacia@example.com,Otra-Clave-Segura-2027!y,CLIENTE\n"
+            "Admin,Importado,admin-importado@example.com,Otra-Clave-Segura-2027!y,ADMIN\n"
+            "Ya,Existe,admin@example.com,Otra-Clave-Segura-2027!y,CLIENTE\n"
+        )
+        respuesta = self.api.post(
+            "/api/usuarios/importar-csv",
+            {"archivo": self.csv(contenido)},
+            format="multipart",
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.data["total"], 6)
+        self.assertEqual(len(respuesta.data["aceptados"]), 2)
+        self.assertEqual(len(respuesta.data["rechazados"]), 4)
+        self.assertEqual(
+            Usuario.objects.get(correo="jose@example.com").rol,
+            "CLIENTE",
+        )
+        self.assertEqual(Usuario.objects.get(correo="jose@example.com").nombre, "José")
+        admin_importado = Usuario.objects.get(correo="admin-importado@example.com")
+        self.assertEqual((admin_importado.rol, admin_importado.estado), ("ADMIN", "ACTIVO"))
+        self.assertNotIn("password", str(respuesta.data).lower())
+        self.assertNotIn("Clave-Segura", str(respuesta.data))
+
+    def test_csv_rol_es_opcional_y_por_defecto_cliente(self):
+        respuesta = self.api.post(
+            "/api/usuarios/importar-csv",
+            {"archivo": self.csv(
+                "nombre,apellido,correo,password\n"
+                "Cliente,Importado,cliente-importado@example.com,Clave-Segura-2026!x\n"
+            )},
+            format="multipart",
+        )
+
+        self.assertEqual(respuesta.status_code, 200)
+        usuario = Usuario.objects.get(correo="cliente-importado@example.com")
+        self.assertEqual((usuario.rol, usuario.estado), ("CLIENTE", "ACTIVO"))
+
+    def test_csv_encabezado_invalido_no_importa_filas(self):
+        respuesta = self.api.post(
+            "/api/usuarios/importar-csv",
+            {"archivo": self.csv("nombre,correo\nAna,ana@example.com\n")},
+            format="multipart",
+        )
+
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(respuesta.data["aceptados"], [])
+        self.assertEqual(Usuario.objects.count(), 1)
+
+    def test_csv_rechaza_codificacion_no_utf8(self):
+        archivo = SimpleUploadedFile(
+            "usuarios.csv",
+            b"nombre,apellido,correo,password\nAna,Perez,\xff@example.com,Clave",
+            content_type="text/csv",
+        )
+        respuesta = self.api.post(
+            "/api/usuarios/importar-csv",
+            {"archivo": archivo},
+            format="multipart",
+        )
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertIn("UTF-8", respuesta.data["detail"])
 
 
 class CorreoQueFalla:
