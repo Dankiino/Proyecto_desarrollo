@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 COLECCION_PRODUCTOS = "productos"
 COLECCION_CATEGORIAS = "categorias"
+COLECCION_RESERVAS = "reservas"
 
 _client = None
 _lock = threading.Lock()
@@ -100,3 +101,8 @@ def get_productos():
 
 def get_categorias():
     return get_db()[COLECCION_CATEGORIAS]
+
+
+def get_reservas():
+    nombre = getattr(settings, "CATALOGO_RESERVAS_COLLECTION", COLECCION_RESERVAS) or COLECCION_RESERVAS
+    return get_db()[nombre]

@@ -30,6 +30,8 @@ WSGI_APPLICATION = "catalogo.wsgi.application"
 DATABASES = {}
 CATALOGO_MONGO_URI = os.getenv("CATALOGO_MONGO_URI", "")
 CATALOGO_DB_NAME = os.getenv("CATALOGO_DB_NAME", "catalogo_db")
+CATALOGO_RESERVAS_COLLECTION = os.getenv("CATALOGO_RESERVAS_COLLECTION", "reservas")
+CATALOGO_SERVICIO_TOKEN = os.getenv("CATALOGO_SERVICIO_TOKEN", "")
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

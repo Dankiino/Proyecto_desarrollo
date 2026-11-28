@@ -433,3 +433,22 @@ simulados para MongoDB y Gestión.
 | Crear, editar y desactivar productos/categorías desde `/admin` | El repositorio documenta la verificación de validadores, pero no incluye resultados de evidencia UI para el CRUD completo ni una comparación antes/después de documentos existentes. | Pendiente de adjuntar captura y conteo de documentos antes/después para cada operación CRUD en el panel conectado a Atlas. |
 | Integración de inventario contra MongoDB 8.0 local | Resultado previamente registrado con Docker y `catalogo_test`: ajuste válido, reservas conservadas, historial actualizado y operaciones inválidas rechazadas; los documentos se conservaron. Esta prueba local no es una prueba contra Atlas. | Resultados descritos en «Pruebas de integración con MongoDB 8.0»; no confundir con la validación del clúster Atlas. |
 
+---
+
+## Comunicación interna y reservas de inventario (DEA-42)
+
+Se incorporaron endpoints internos autenticados por servicio para que otros servicios (como `comercio-service`) consulten disponibilidad/precios y gestionen reservas de stock de forma atómica e idempotente sobre `catalogo_db` (manteniendo sin cambios los validadores e índices de `DEA-32`).
+
+### Autenticación entre servicios
+
+- Cabecera requerida: `X-Service-Token: <token>`
+- Variable de entorno configurada en `catalogo-service`: `CATALOGO_SERVICIO_TOKEN`
+- Colección de reservas configurable vía `CATALOGO_RESERVAS_COLLECTION` (por defecto `reservas`) con índice único en `orden_id`.
+
+### Endpoints internos disponibles (bajo `/api`)
+
+- `POST /api/interno/productos/consulta/` — Consulta información de productos activos (`precio`, `moneda`, `stock_fisico`, `stock_reservado`, `stock_disponible` y `stock_suficiente`) sin alterar existencias.
+- `POST /api/interno/reservas/` — Crea una reserva atómica tipo «todo o nada» asociada a `orden_id` (`RESERVADA`), con idempotencia por `orden_id` y control de concurrencia en MongoDB.
+- `GET /api/interno/reservas/<str:orden_id>/` — Consulta el estado actual de la reserva (`RESERVADA`, `CONFIRMADA` o `LIBERADA`) y sus líneas.
+- `POST /api/interno/reservas/<str:orden_id>/confirmar/` — Transición `RESERVADA` -> `CONFIRMADA` descontando `stock_fisico` y `stock_reservado` de forma idempotente y evitando doble descuento.
+- `POST /api/interno/reservas/<str:orden_id>/liberar/` — Transición `RESERVADA` -> `LIBERADA` devolviendo unidades a `stock_reservado` de forma idempotente y sin descontar `stock_fisico`.

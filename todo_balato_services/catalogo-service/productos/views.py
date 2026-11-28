@@ -6,6 +6,31 @@ from rest_framework.views import APIView
 
 from . import repository
 from .admin_auth import verificar_admin
+from .repository import (
+    actualizar_categoria,
+    actualizar_producto,
+    comprobar_lectura,
+    crear_categoria,
+    crear_producto,
+    listar_categorias,
+    listar_productos,
+    obtener_categoria,
+    obtener_producto,
+)
+from .reservas_repo import (
+    ErrorReservaNegocio,
+    confirmar_reserva,
+    consultar_productos_para_comercio,
+    crear_reserva_atomica,
+    liberar_reserva,
+    obtener_reserva,
+)
+from .serializers import (
+    AjusteInventarioSerializer,
+    CategoriaSerializer,
+    ProductoCrearSerializer,
+)
+from .servicio_auth import verificar_credencial_servicio
 
 
 ORDENES = {"recientes", "precio_asc", "precio_desc", "nombre_asc"}
@@ -132,6 +157,66 @@ def _mapa_categorias():
     }
 
 
+def _validar_items_payload(data):
+    if not isinstance(data, dict):
+        return None, _error_validacion("items", "Debe enviarse un objeto JSON válido.")
+
+    items = data.get("items")
+    if not isinstance(items, list) or len(items) == 0:
+        return None, _error_validacion("items", "Debe ser una lista no vacía.")
+
+    validados = []
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            return None, _error_validacion(f"items[{idx}]", "Cada ítem debe ser un objeto.")
+
+        pid = item.get("producto_id")
+        if not isinstance(pid, str) or not pid.strip():
+            return None, _error_validacion(
+                f"items[{idx}].producto_id", "Debe ser un identificador de texto no vacío."
+            )
+
+        cantidad = item.get("cantidad")
+        if isinstance(cantidad, bool) or not isinstance(cantidad, int) or cantidad <= 0:
+            return None, _error_validacion(
+                f"items[{idx}].cantidad", "Debe ser un número entero mayor a 0."
+            )
+
+        validados.append({"producto_id": pid.strip(), "cantidad": cantidad})
+
+    return validados, None
+
+
+def _serializar_reserva(reserva):
+    return {
+        "reserva_id": str(reserva.get("_id", "")),
+        "orden_id": reserva.get("orden_id", ""),
+        "estado": reserva.get("estado", ""),
+        "items": reserva.get("items", []),
+        "creado_en": _fecha_iso(reserva.get("creado_en")),
+        "actualizado_en": _fecha_iso(reserva.get("actualizado_en")),
+        "confirmada_en": _fecha_iso(reserva.get("confirmada_en"))
+        if reserva.get("confirmada_en")
+        else None,
+        "liberada_en": _fecha_iso(reserva.get("liberada_en"))
+        if reserva.get("liberada_en")
+        else None,
+    }
+
+
+def _respuesta_error_reserva(exc):
+    return Response(
+        {
+            "error": {
+                "codigo": exc.codigo,
+                "mensaje": exc.mensaje,
+                "detalles": exc.detalles,
+            }
+        },
+        status=exc.status_code,
+    )
+
+
 class CategoriasView(APIView):
     def get(self, request):
         categorias = [
@@ -214,23 +299,7 @@ class ProductoDetalleView(APIView):
             _producto_publico(producto, _mapa_categorias(), detalle=True)
         )
 
-from .repository import (
-    comprobar_lectura,
-    listar_categorias,
-    listar_productos,
-    crear_producto,
-    obtener_producto,
-    actualizar_producto,
-    crear_categoria,
-    obtener_categoria,
-    actualizar_categoria,
-)
 
-from .serializers import (
-    ProductoCrearSerializer,
-    CategoriaSerializer,
-    AjusteInventarioSerializer,
-)
 class HealthView(APIView):
     def get(self, request):
         return Response({"status": "ok", "service": "catalogo-service"})
@@ -238,7 +307,7 @@ class HealthView(APIView):
 
 class MongoHealthView(APIView):
     def get(self, request):
-        colecciones = repository.comprobar_lectura()  # lanza CatalogoDBError -> 503
+        colecciones = comprobar_lectura()  # lanza CatalogoDBError -> 503
         return Response(
             {"status": "ok", "service": "catalogo-service", "mongo": colecciones}
         )
@@ -295,8 +364,6 @@ class AdminProductosView(APIView):
         )
 
 
-
-
 class AdminCategoriasView(APIView):
     def get(self, request):
         verificar_admin(request)
@@ -348,7 +415,6 @@ class AdminCategoriasView(APIView):
         categoria = crear_categoria(datos)
 
         return Response(categoria, status=201)
-
 
 
 class AdminCategoriaDetalleView(APIView):
@@ -483,7 +549,6 @@ class AdminProductoDetalleView(APIView):
             if campo != "activo"
         })
 
-
         if "activo" in request.data:
             if not isinstance(request.data["activo"], bool):
                 return Response(
@@ -584,3 +649,76 @@ class AdminAjustesInventarioView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+
+class InternoProductosConsultaView(APIView):
+    def post(self, request):
+        verificar_credencial_servicio(request)
+        items, error = _validar_items_payload(request.data)
+        if error:
+            return error
+        try:
+            productos = consultar_productos_para_comercio(items)
+        except ErrorReservaNegocio as exc:
+            return _respuesta_error_reserva(exc)
+        return Response({"results": productos}, status=status.HTTP_200_OK)
+
+
+class InternoReservasView(APIView):
+    def post(self, request):
+        verificar_credencial_servicio(request)
+        if not isinstance(request.data, dict):
+            return _error_validacion("orden_id", "Debe enviarse un objeto JSON válido.")
+
+        orden_id = request.data.get("orden_id")
+        if not isinstance(orden_id, str) or not orden_id.strip():
+            return _error_validacion("orden_id", "Debe ser un identificador de texto no vacío.")
+
+        items, error = _validar_items_payload(request.data)
+        if error:
+            return error
+
+        try:
+            reserva, creada = crear_reserva_atomica(orden_id.strip(), items)
+        except ErrorReservaNegocio as exc:
+            return _respuesta_error_reserva(exc)
+
+        codigo_http = status.HTTP_201_CREATED if creada else status.HTTP_200_OK
+        return Response(_serializar_reserva(reserva), status=codigo_http)
+
+
+class InternoReservaDetalleView(APIView):
+    def get(self, request, orden_id):
+        verificar_credencial_servicio(request)
+        reserva = obtener_reserva(orden_id)
+        if reserva is None:
+            return Response(
+                {
+                    "error": {
+                        "codigo": "reserva_no_encontrada",
+                        "mensaje": "No existe una reserva asociada a la orden indicada.",
+                    }
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(_serializar_reserva(reserva), status=status.HTTP_200_OK)
+
+
+class InternoReservaConfirmarView(APIView):
+    def post(self, request, orden_id):
+        verificar_credencial_servicio(request)
+        try:
+            reserva = confirmar_reserva(orden_id)
+        except ErrorReservaNegocio as exc:
+            return _respuesta_error_reserva(exc)
+        return Response(_serializar_reserva(reserva), status=status.HTTP_200_OK)
+
+
+class InternoReservaLiberarView(APIView):
+    def post(self, request, orden_id):
+        verificar_credencial_servicio(request)
+        try:
+            reserva = liberar_reserva(orden_id)
+        except ErrorReservaNegocio as exc:
+            return _respuesta_error_reserva(exc)
+        return Response(_serializar_reserva(reserva), status=status.HTTP_200_OK)

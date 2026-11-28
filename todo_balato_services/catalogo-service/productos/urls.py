@@ -1,4 +1,3 @@
-
 from django.urls import path
 
 from .views import (
@@ -13,6 +12,11 @@ from .views import (
     AdminProductoDetalleView,
     AdminCategoriaDetalleView,
     AdminAjustesInventarioView,
+    InternoProductosConsultaView,
+    InternoReservasView,
+    InternoReservaDetalleView,
+    InternoReservaConfirmarView,
+    InternoReservaLiberarView,
 )
 
 urlpatterns = [
@@ -41,7 +45,29 @@ urlpatterns = [
         AdminCategoriaDetalleView.as_view(),
     ),
     path(
-    "admin/productos/<str:producto_id>/ajustes",
-    AdminAjustesInventarioView.as_view()
-),
+        "admin/productos/<str:producto_id>/ajustes",
+        AdminAjustesInventarioView.as_view(),
+    ),
+
+    # Rutas internas de servicio (DEA-42)
+    path(
+        "interno/productos/consulta/",
+        InternoProductosConsultaView.as_view(),
+    ),
+    path(
+        "interno/reservas/",
+        InternoReservasView.as_view(),
+    ),
+    path(
+        "interno/reservas/<str:orden_id>/",
+        InternoReservaDetalleView.as_view(),
+    ),
+    path(
+        "interno/reservas/<str:orden_id>/confirmar/",
+        InternoReservaConfirmarView.as_view(),
+    ),
+    path(
+        "interno/reservas/<str:orden_id>/liberar/",
+        InternoReservaLiberarView.as_view(),
+    ),
 ]
